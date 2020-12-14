@@ -1,1 +1,28 @@
-# userland_io
+# userland-io
+
+[![Crates.io](https://img.shields.io/crates/v/userland-io.svg)](https://crates.io/crates/userland-io)
+[![documentation](https://docs.rs/userland-io/badge.svg)](https://docs.rs/userland-io)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/userland-io/blob/master/LICENSE)
+
+## Motivation
+
+Developing a virtual block device in Linux kernel is a hard task.
+You must understand not only device-mapper framework but also the subsystems around it.
+Writing a complicated code in C language will spend a ton of time and the
+code output is usually hard to maintain. How do I know this? Because I've ever implemented [dm-writeboost](https://github.com/akiradeveloper/dm-writeboost).
+
+When I met Rust language, soon I fell in love with the language and came to think of how it would be nice to write virtual block device in this beautiful language. With Rust, concurrent programming is not a difficult task while it is just like hell with C. Moreover, we can make use of sophisticated eco-system and libraries from Rust community.
+
+[fuse-rs](https://github.com/zargony/fuse-rs) is such a framework for filesystem layer but there was nothing for block layer. That's why I started this project.
+
+## Architecture
+
+The client IO is coming from [NBD](https://github.com/NetworkBlockDevice/nbd). The TCP connection is split into read half and write half so reading and writing are executed concurrently. The NBD requests are interpreted and changed into generic request.
+
+Right half of the picture is generic storage layer. The generic request in passed from the transport in queue. The executor sends it to storage engine asynchonously so all the requests are processed concurrently.
+
+![Architecture](architecture.png)
+
+## Futurework
+
+- A new target called dm-user is [proposed](https://www.redhat.com/archives/dm-devel/2020-December/msg00101.html) to upstream. dm-user is a DM target to proxy kernel bio to userland just like FUSE. This would bring better performance than with NBD because there is no TCP communication involved. If dm-user is merged, I will implement new transport in which IOs are coming from dm-user.
