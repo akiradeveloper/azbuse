@@ -1,0 +1,22 @@
+[package]
+name = "userland-io"
+version = "0.1.0-alpha.1"
+authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
+edition = "2018"
+license = "MIT"
+description = "It's like FUSE but for the block layer"
+repository = "https://github.com/akiradeveloper/userland-io"
+readme = "../README.md"
+categories = ["filesystem"]
+keywords = ["device-mapper", "fuse", "storage", "block device"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "0.3", features = ["net", "sync", "stream", "io-util", "rt"] }
+async-trait = "0.1"
+byteorder = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+rmp = "0.8.9"
+rmp-serde = "0.14.3"
+futures = "0.3"
