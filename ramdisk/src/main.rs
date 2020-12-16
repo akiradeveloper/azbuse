@@ -2,16 +2,16 @@ use userland_io::*;
 use async_trait::async_trait;
 use std::io::Result;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use futures::future::FutureExt;
 
 pub struct Ramdisk {
-    buf: Arc<Mutex<Vec<u8>>>,
+    buf: Arc<RwLock<Vec<u8>>>,
 }
 impl Ramdisk {
     pub fn new(n: usize) -> Self {
         Self {
-            buf: Arc::new(Mutex::new(vec![0; n]))
+            buf: Arc::new(RwLock::new(vec![0; n]))
         }
     }
 }
@@ -20,13 +20,13 @@ impl StorageEngine for Ramdisk {
     async fn call(&self, req: IORequest) -> Result<IOResponse> {
         match req {
             IORequest::Write { offset, length, fua, payload } => {
-                let mut buf = self.buf.lock().await;
+                let mut buf = self.buf.write().await;
                 let buf = &mut buf[offset as usize .. offset as usize + length as usize];
                 buf.copy_from_slice(&payload);
                 Ok(IOResponse::Ok)
             },
             IORequest::Read { offset, length } => {
-                let buf = self.buf.lock().await;
+                let buf = self.buf.read().await;
                 let payload = buf[offset as usize .. offset as usize + length as usize].to_vec();
                 Ok(IOResponse::Read {
                     payload,
