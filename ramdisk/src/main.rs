@@ -42,7 +42,7 @@ impl StorageEngine for Ramdisk {
 
 #[tokio::main]
 async fn main() {
-    let sz = 16_000_000;
+    let sz = 16_000_000; // 16MB
     let ramdisk = Ramdisk::new(sz);
     let (backend, tx) = userland_io::IOExecutor::new();
     let export = transport::nbd::Export {

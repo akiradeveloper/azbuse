@@ -10,5 +10,4 @@ edition = "2018"
 userland-io = { path = "../userland-io" }
 async-trait = "0.1"
 tokio = { version = "0.3", features = ["rt-multi-thread", "macros"]}
-clap = "3.0.0-beta.2"
 futures = "0.3"
