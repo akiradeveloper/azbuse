@@ -1,18 +1,18 @@
 #![deny(unused_must_use)]
 
 use std::io::Result;
-use tokio::sync::mpsc::{self, Sender, Receiver};
+use tokio::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use async_trait::async_trait;
 use std::sync::Arc;
 
 pub mod transport;
 
 pub struct IOExecutor {
-    rx: Receiver<Request>,
+    rx: UnboundedReceiver<Request>,
 }
 impl IOExecutor {
-    pub fn new() -> (Self, Sender<Request>) {
-        let (request_tx, request_rx) = mpsc::channel(64);
+    pub fn new() -> (Self, UnboundedSender<Request>) {
+        let (request_tx, request_rx) = mpsc::unbounded_channel();
         let x = Self {
             rx: request_rx,
         };
@@ -27,12 +27,12 @@ impl IOExecutor {
                 match inner {
                     IORequest::Echo(n) => {
                         let resp = Response { inner: Ok(IOResponse::Echo(n)), context };
-                        let _ = tx.send(resp).await;
+                        let _ = tx.send(resp);
                     },
                     req => {
                         let resp_inner = engine.call(req).await;
                         let resp = Response { inner: resp_inner, context };
-                        let _ = tx.send(resp).await;
+                        let _ = tx.send(resp);
                     }
                 }
             };
@@ -72,13 +72,13 @@ pub enum IOResponse {
     Echo(u32),
 }
 pub struct Request {
-    pub inner: IORequest,
-    pub tx: Sender<Response>,
-    pub context: Vec<u8>,
+    inner: IORequest,
+    tx: UnboundedSender<Response>,
+    context: Vec<u8>,
 }
-pub struct Response {
-    pub inner: Result<IOResponse>,
-    pub context: Vec<u8>,
+struct Response {
+    inner: Result<IOResponse>,
+    context: Vec<u8>,
 }
 
 #[async_trait]

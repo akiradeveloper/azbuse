@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use tokio::net::{TcpStream, TcpListener};
 use tokio::stream::StreamExt;
-use tokio::sync::mpsc::{self, Sender, Receiver};
+use tokio::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tokio::io::{ReadHalf, WriteHalf, AsyncWriteExt, AsyncReadExt};
 use crate::{Request, Response, IORequest, IOResponse};
 use std::io::Result;
@@ -27,8 +27,8 @@ struct Context {
 
 struct RequestHandler {
     read_stream: ReadHalf<TcpStream>,
-    request_tx: Sender<Request>,
-    response_tx: Sender<Response>,
+    request_tx: UnboundedSender<Request>,
+    response_tx: UnboundedSender<Response>,
 }
 impl RequestHandler {
     async fn run_once(&mut self) -> Result<()> {
@@ -58,7 +58,7 @@ impl RequestHandler {
                     tx: self.response_tx.clone(),
                     context,
                 };
-                let _ = self.request_tx.send(req).await;
+                let _ = self.request_tx.send(req);
             },
             NBD_CMD_WRITE => {
                 let mut buf = vec![0; length as usize];
@@ -73,7 +73,7 @@ impl RequestHandler {
                     tx: self.response_tx.clone(),
                     context,
                 };
-                let _ = self.request_tx.send(req).await;
+                let _ = self.request_tx.send(req);
             },
             NBD_CMD_DISC => {
                 return Ok(())
@@ -84,7 +84,7 @@ impl RequestHandler {
                     tx: self.response_tx.clone(),
                     context,
                 };
-                let _ = self.request_tx.send(req).await;
+                let _ = self.request_tx.send(req);
             }
             NBD_CMD_TRIM | NBD_CMD_WRITE_ZEROES => {
                 let req = Request {
@@ -93,7 +93,7 @@ impl RequestHandler {
                     tx: self.response_tx.clone(),
                     context,
                 };
-                let _ = self.request_tx.send(req).await;
+                let _ = self.request_tx.send(req);
             }
             _ => {}
         }
@@ -107,7 +107,7 @@ impl RequestHandler {
 }
 struct ResponseHandler {
     write_stream: WriteHalf<TcpStream>,
-    response_rx: Receiver<Response>,
+    response_rx: UnboundedReceiver<Response>,
 }
 impl ResponseHandler {
     async fn run_once(&mut self, resp: Response) -> Result<()> {
@@ -139,11 +139,11 @@ impl ResponseHandler {
     }
 }
 pub struct Server {
-    request_tx: Sender<Request>,
+    request_tx: UnboundedSender<Request>,
     export: Export
 }
 impl Server {
-    pub fn new(request_tx: Sender<Request>, export: Export) -> Self {
+    pub fn new(request_tx: UnboundedSender<Request>, export: Export) -> Self {
         Self {
             request_tx,
             export,
@@ -157,7 +157,7 @@ impl Server {
                     match handshake(&mut stream, &self.export).await {
                         Ok(_) => {
                             let (read_stream, write_stream) = tokio::io::split(stream);
-                            let (response_tx, response_rx) = mpsc::channel::<Response>(64);
+                            let (response_tx, response_rx) = mpsc::unbounded_channel::<Response>();
                             let request_handler = RequestHandler {
                                 read_stream,
                                 request_tx: self.request_tx.clone(),
@@ -168,9 +168,8 @@ impl Server {
                                 response_rx,
                             };
                             let fut = async move {
-                                let fut1 = tokio::spawn(request_handler.run()).fuse();
-                                let fut2 = tokio::spawn(response_handler.run()).fuse();
-                                futures::pin_mut!(fut1, fut2);
+                                let mut fut1 = tokio::spawn(request_handler.run()).fuse();
+                                let mut fut2 = tokio::spawn(response_handler.run()).fuse();
                                 select! {
                                     _ = fut1 => {},
                                     _ = fut2 => {},
