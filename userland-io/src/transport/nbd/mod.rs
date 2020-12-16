@@ -3,7 +3,7 @@ use tokio::net::{TcpStream, TcpListener};
 use tokio::stream::StreamExt;
 use tokio::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tokio::io::{ReadHalf, WriteHalf, AsyncWriteExt, AsyncReadExt};
-use crate::{Request, Response, IORequest, IOResponse};
+use crate::{Request, Response, IORequest, IOResponse, IOResponseInner, IORequestInner};
 use std::io::Result;
 use protocol::io;
 use futures::select;
@@ -51,10 +51,10 @@ impl RequestHandler {
         match typ {
             NBD_CMD_READ => {
                 let req = Request {
-                    inner: IORequest::Read {
+                    inner: IORequestInner::IORequest(IORequest::Read {
                         offset,
                         length,
-                    },
+                    }),
                     tx: self.response_tx.clone(),
                     context,
                 };
@@ -64,12 +64,12 @@ impl RequestHandler {
                 let mut buf = vec![0; length as usize];
                 let _ = c.read_exact(&mut buf).await;
                 let req = Request {
-                    inner: IORequest::Write {
+                    inner: IORequestInner::IORequest(IORequest::Write {
                         payload: buf,
                         offset,
                         length,
                         fua: false,
-                    },
+                    }),
                     tx: self.response_tx.clone(),
                     context,
                 };
@@ -80,7 +80,7 @@ impl RequestHandler {
             }
             NBD_CMD_FLUSH => {
                 let req = Request {
-                    inner: IORequest::Flush,
+                    inner: IORequestInner::IORequest(IORequest::Flush),
                     tx: self.response_tx.clone(),
                     context,
                 };
@@ -89,7 +89,7 @@ impl RequestHandler {
             NBD_CMD_TRIM | NBD_CMD_WRITE_ZEROES => {
                 let req = Request {
                     // Not implemented
-                    inner: IORequest::Echo(38),
+                    inner: IORequestInner::Echo(38),
                     tx: self.response_tx.clone(),
                     context,
                 };
@@ -115,14 +115,18 @@ impl ResponseHandler {
         let context: Context = rmp_serde::from_slice(&resp.context).unwrap();
         let handle = context.handle;
         match resp.inner {
-            Ok(IOResponse::Ok) => {
-                reply(c, 0, handle).await?;
-            },
-            Ok(IOResponse::Read { mut payload }) => {
-                reply(c, 0, handle).await?;
-                let _ = c.write_all(&mut payload).await;
-            },
-            Ok(IOResponse::Echo(n)) => {
+            Ok(IOResponseInner::IOResponse(req)) => {
+                match req {
+                    IOResponse::Ok => {
+                        reply(c, 0, handle).await?;
+                    },
+                    IOResponse::Read { mut payload } => {
+                        reply(c, 0, handle).await?;
+                        let _ = c.write_all(&mut payload).await;
+                    },
+                }
+            }
+            Ok(IOResponseInner::Echo(n)) => {
                 let _ = reply(c, n, handle).await;
             },
             Err(e) => {
