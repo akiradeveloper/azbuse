@@ -26,5 +26,5 @@ Right half of the figure is generic storage layer. The generic request in passed
 
 ## Futurework
 
-- I think it would be so nice to have a working transport in Windowns and Mac.
+- I think it would be so nice to have a working transport in Windows and Mac.
 - A new target called dm-user is [proposed](https://www.redhat.com/archives/dm-devel/2020-December/msg00101.html) to upstream. dm-user is a DM target to proxy kernel bio to userland just like FUSE. This would bring better performance than with NBD because there is no TCP communication involved. If dm-user is merged, I will implement new transport in which IOs are coming from dm-user.
