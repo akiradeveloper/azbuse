@@ -35,7 +35,6 @@ impl StorageEngine for Ramdisk {
             IORequest::Flush => {
                 Ok(IOResponse::Ok)
             },
-            _ => unreachable!(),
         }
     }
 }

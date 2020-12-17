@@ -25,13 +25,13 @@ impl IOExecutor {
             let fut = async move {
                 let Request { inner, tx, context } = req;
                 match inner {
-                    IORequest::Echo(n) => {
-                        let resp = Response { inner: Ok(IOResponse::Echo(n)), context };
+                    IORequestInner::Echo(n) => {
+                        let resp = Response { inner: Ok(IOResponseInner::Echo(n)), context };
                         let _ = tx.send(resp);
                     },
-                    req => {
+                    IORequestInner::IORequest(req) => {
                         let resp_inner = engine.call(req).await;
-                        let resp = Response { inner: resp_inner, context };
+                        let resp = Response { inner: resp_inner.map(|x| IOResponseInner::IOResponse(x)), context };
                         let _ = tx.send(resp);
                     }
                 }
@@ -39,6 +39,10 @@ impl IOExecutor {
             tokio::spawn(fut);
         }
     }
+}
+enum IORequestInner {
+    IORequest(IORequest),
+    Echo(u32),
 }
 pub enum IORequest {
     Write {
@@ -62,6 +66,9 @@ pub enum IORequest {
     //     length: u32,
     //     fua: bool,
     // },
+}
+enum IOResponseInner {
+    IOResponse(IOResponse),
     Echo(u32),
 }
 pub enum IOResponse {
@@ -69,15 +76,14 @@ pub enum IOResponse {
     Read { 
         payload: Vec<u8>,
     },
-    Echo(u32),
 }
 pub struct Request {
-    inner: IORequest,
+    inner: IORequestInner,
     tx: UnboundedSender<Response>,
     context: Vec<u8>,
 }
 struct Response {
-    inner: Result<IOResponse>,
+    inner: Result<IOResponseInner>,
     context: Vec<u8>,
 }
 
