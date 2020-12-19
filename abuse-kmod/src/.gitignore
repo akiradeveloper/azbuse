@@ -1,0 +1,8 @@
+.abuse*
+abuse.ko
+abuse.mod*
+build.log
+check-compile.sh
+Module.symvers
+modules.order
+.tmp_versions
