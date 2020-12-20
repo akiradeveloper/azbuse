@@ -584,7 +584,7 @@ static int abuse_init_request(void *data, struct request *rq,
 	return 0;
 }
 
-static int abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_queue_data *bd)
+static blk_status_t abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_queue_data *bd)
 {
 	struct ab_req *req = blk_mq_rq_to_pdu(bd->rq);
 	struct abuse_device *ab = req->rq->q->queuedata;
@@ -597,7 +597,7 @@ static int abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_queue_
 	spin_unlock_irq(&ab->ab_lock);
 
 
-	return BLK_MQ_RQ_QUEUE_OK;;
+	return BLK_STS_OK;
 }
 
 static struct blk_mq_ops abuse_mq_ops = {
