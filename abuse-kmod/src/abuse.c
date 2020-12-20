@@ -643,7 +643,11 @@ static struct abuse_device *abuse_alloc(int i)
 	ab->tag_set.queue_depth = 128;
 	ab->tag_set.numa_node = NUMA_NO_NODE;
 	ab->tag_set.cmd_size = sizeof(struct ab_req);
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
+	ab->tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
+	#else
 	ab->tag_set.flags = BLK_MQ_F_SHOULD_MERGE | BLK_MQ_F_SG_MERGE;
+	#endif
 	ab->tag_set.driver_data = ab;
 
 	err = blk_mq_alloc_tag_set(&ab->tag_set);
