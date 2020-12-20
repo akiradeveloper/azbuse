@@ -20,6 +20,7 @@
  *
  */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/sched.h>
@@ -37,6 +38,12 @@
 #include "abuse.h"
 
 #include <asm/uaccess.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)
+#define compat_get_disk(x) get_disk_and_module(x)
+#else
+#define compat_get_disk(x) get_disk(x)
+#endif
 
 static DEFINE_MUTEX(abuse_devices_mutex);
 static DEFINE_MUTEX(abctl_mutex);
@@ -704,7 +711,8 @@ static struct kobject *abuse_probe(dev_t dev, int *part, void *data)
 
 	mutex_lock(&abuse_devices_mutex);
 	ab = abuse_init_one(dev & MINORMASK);
-	kobj = ab ? get_disk(ab->ab_disk) : ERR_PTR(-ENOMEM);
+	kobj = ab ? compat_get_disk(ab->ab_disk) : ERR_PTR(-ENOMEM);
+
 	mutex_unlock(&abuse_devices_mutex);
 
 	*part = 0;
