@@ -602,7 +602,6 @@ static int abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_queue_
 
 static struct blk_mq_ops abuse_mq_ops = {
 	.queue_rq       = abuse_queue_rq,
-	.map_queue      = blk_mq_map_queue,
 	.init_request	= abuse_init_request,
 };
 
