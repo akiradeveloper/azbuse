@@ -66,7 +66,7 @@ static void abuse_flush_req(struct abuse_device *ab)
 
 	spin_lock_irq(&ab->ab_lock);
 	list_for_each_entry_safe(req, tmp, &ab->ab_reqlist, list) {
-		req->rq->cmd_flags |= REQ_FAILED;
+		req->rq->rq_flags |= RQF_FAILED;
 		blk_complete_request(req->rq);
 		list_del(&req->list);
 	}
