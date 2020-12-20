@@ -51,6 +51,12 @@
 #define compat_queue_flag_set(x,y) queue_flag_set_unlocked(x,y)
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
+#define compat_complete_request(x) blk_mq_complete_request(x)
+#else
+#define compat_complete_request(x) blk_complete_request(x)
+#endif
+
 static DEFINE_MUTEX(abuse_devices_mutex);
 static DEFINE_MUTEX(abctl_mutex);
 static DEFINE_IDR(abuse_index_idr);
@@ -73,7 +79,7 @@ static void abuse_flush_req(struct abuse_device *ab)
 	spin_lock_irq(&ab->ab_lock);
 	list_for_each_entry_safe(req, tmp, &ab->ab_reqlist, list) {
 		req->rq->rq_flags |= RQF_FAILED;
-		blk_complete_request(req->rq);
+		compat_complete_request(req->rq);
 		list_del(&req->list);
 	}
 	spin_unlock_irq(&ab->ab_lock);
