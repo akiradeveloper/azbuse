@@ -573,9 +573,8 @@ MODULE_PARM_DESC(max_part, "Maximum number of partitions per abuse device");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_BLOCKDEV_MAJOR(ABUSE_MAJOR);
 
-static int abuse_init_request(void *data, struct request *rq,
-		unsigned int hctx_idx, unsigned int request_idx,
-		unsigned int numa_node)
+static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
+			      unsigned int hctx_idx, unsigned int numa_node)
 {
 	struct ab_req *req = blk_mq_rq_to_pdu(rq);
 
