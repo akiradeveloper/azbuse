@@ -45,6 +45,12 @@
 #define compat_get_disk(x) get_disk(x)
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
+#define compat_queue_flag_set(x,y) blk_queue_flag_set(x,y)
+#else
+#define compat_queue_flag_set(x,y) queue_flag_set_unlocked(x,y)
+#endif
+
 static DEFINE_MUTEX(abuse_devices_mutex);
 static DEFINE_MUTEX(abctl_mutex);
 static DEFINE_IDR(abuse_index_idr);
@@ -153,7 +159,7 @@ abuse_set_status_int(struct abuse_device *ab, struct block_device *bdev,
 
 	ab->ab_device = bdev;
 	ab->ab_queue->queuedata = ab;
-	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, ab->ab_queue);
+	compat_queue_flag_set(QUEUE_FLAG_NONROT, ab->ab_queue);
 
 	ab->ab_size = info->ab_size;
 	ab->ab_flags = (info->ab_flags & ABUSE_FLAGS_READ_ONLY);
