@@ -40,21 +40,29 @@
 #include <asm/uaccess.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)
-#define compat_get_disk(x) get_disk_and_module(x)
+#define compat_get_disk(x) get_disk_and_module((x))
 #else
-#define compat_get_disk(x) get_disk(x)
+#define compat_get_disk(x) get_disk((x))
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
-#define compat_queue_flag_set(x,y) blk_queue_flag_set(x,y)
+#define compat_queue_flag_set(x,y) blk_queue_flag_set((x),(y))
 #else
-#define compat_queue_flag_set(x,y) queue_flag_set_unlocked(x,y)
+#define compat_queue_flag_set(x,y) queue_flag_set_unlocked((x),(y))
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
-#define compat_complete_request(x) blk_mq_complete_request(x)
+#define compat_complete_request(x) blk_mq_complete_request((x))
 #else
-#define compat_complete_request(x) blk_complete_request(x)
+#define compat_complete_request(x) blk_complete_request((x))
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
+#define compat_spin_lock_irqsave(x,y) spin_lock_irqsave(&(x),(y))
+#define compat_spin_unlock_irqrestore(x,y) spin_unlock_irqrestore(&(x),(y))
+#else
+#define compat_spin_lock_irqsave(x,y) spin_lock_irqsave((x),(y))
+#define compat_spin_unlock_irqrestore(x,y) spin_unlock_irqrestore((x),(y))
 #endif
 
 static DEFINE_MUTEX(abuse_devices_mutex);
@@ -390,9 +398,9 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 	}
 
 	/* Well, you did it.  Congraulations, you get a pony. */
-	spin_lock_irqsave(req->rq->q->queue_lock, flags);
+	compat_spin_lock_irqsave(req->rq->q->queue_lock, flags);
 	blk_mq_end_request(req->rq, 0);
-	spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
+	compat_spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
 
 	return 0;
 }
