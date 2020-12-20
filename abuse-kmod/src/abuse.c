@@ -100,6 +100,19 @@ static inline int is_abuse_device(struct file *file)
 	return i && S_ISBLK(i->i_mode) && MAJOR(i->i_rdev) == ABUSE_MAJOR;
 }
 
+static int reread_partition(struct block_device *bdev) {
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0)
+	int res;
+	mm_segment_t old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	res = blkdev_ioctl(bdev, 0, BLKRRPART, 0);
+	set_fs(old_fs);
+	return res;
+	#else
+	return ioctl_by_bdev(bdev, BLKRRPART, 0);
+	#endif
+}
+
 static int abuse_reset(struct abuse_device *ab)
 {
 	if (!ab->ab_disk->queue)
@@ -116,7 +129,7 @@ static int abuse_reset(struct abuse_device *ab)
 		bd_set_size(ab->ab_device, 0);
 		invalidate_bdev(ab->ab_device);
 		if (max_part > 0)
-			ioctl_by_bdev(ab->ab_device, BLKRRPART, 0);
+			reread_partition(ab->ab_device);
 		blkdev_put(ab->ab_device, FMODE_READ);
 		ab->ab_device = NULL;
 		module_put(THIS_MODULE);
@@ -186,7 +199,7 @@ abuse_set_status_int(struct abuse_device *ab, struct block_device *bdev,
 	bd_set_size(bdev, size << 9);
 	set_blocksize(bdev, ab->ab_blocksize);
 	if (max_part > 0)
-		ioctl_by_bdev(bdev, BLKRRPART, 0);
+		reread_partition(bdev);
 
 	return 0;
 }
