@@ -3,4 +3,5 @@ members = [
     "userland-io",
     "ramdisk",
     "abuse",
+    "abuse-proto",
 ]

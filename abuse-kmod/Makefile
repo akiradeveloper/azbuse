@@ -11,3 +11,6 @@ install:
 uninstall:
 	dkms remove --all $(DKMS_KEY)
 	rm -rf $(DKMS_DIR)
+
+.PHONY: reinstall
+reinstall: uninstall install

@@ -11,3 +11,6 @@ Cargo.lock
 
 perf*
 tmp*
+
+abuse-proto-bin
+naota-abuse-kmod
