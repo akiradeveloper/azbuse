@@ -270,7 +270,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 		xfr.ab_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
 		rq_for_each_segment(bvec, req->rq, iter) {
 			// physical address of the page
-			ab->ab_xfer[i].ab_address = (__u64)virt_to_phys(page_address(bvec.bv_page));
+			ab->ab_xfer[i].ab_address = (__u64)page_to_phys(bvec.bv_page);
 			ab->ab_xfer[i].ab_offset = bvec.bv_offset;
 			ab->ab_xfer[i].ab_len = bvec.bv_len;
 			++i;
