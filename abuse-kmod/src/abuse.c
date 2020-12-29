@@ -4,8 +4,9 @@
  * linux/drivers/block/abuse.c
  * Written by Zachary Amsden, 7/23/2009
  * 
- * Copyright (c) 2009 by Zachary Amsden.
- * Copyright (c) 2021 by Akira Hayakawa.
+ * Copyright (c) 2009 Zachary Amsden
+ * Copyright (c) 2015 Naohiro Aota
+ * Copyright (c) 2021 Akira HayakawaA (ruby.wktk@gmail.com)
  * 
  * Redistribution of this file is permitted under the GNU General Public License.
  */
