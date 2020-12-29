@@ -15,16 +15,8 @@ When I met Rust language, soon I fell in love with the beautiful language and ca
 
 [fuse-rs](https://github.com/zargony/fuse-rs) is such a framework for filesystem layer but there nothing exists for block layer. That's why I started this project.
 
-## Architecture
-
-The client IO is coming from [NBD](https://github.com/NetworkBlockDevice/nbd). The TCP connection is split into read half and write half so reading and writing are executed simultaneously.
-The NBD requests are interpreted and changed into generic request.
-
-Right half of the figure is generic storage layer. The generic request in passed from the transport in queue. The executor sends it to storage engine asynchonously so all the requests are processed concurrently.
-
-![Architecture](architecture.png)
-
 ## Futurework
 
 - I think it would be so nice to have a working transport in Windows and Mac.
+- Stabilize abuse transport.
 - A new target called dm-user is [proposed](https://www.redhat.com/archives/dm-devel/2020-December/msg00101.html) to upstream. dm-user is a DM target to proxy kernel bio to userland just like FUSE. This would bring better performance than with NBD because there is no TCP communication involved. If dm-user is merged, I will implement new transport in which IOs are coming from dm-user.

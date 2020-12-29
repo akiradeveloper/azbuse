@@ -1,4 +1,4 @@
-use userland_io::*;
+use nbd::*;
 use async_trait::async_trait;
 use std::io::Result;
 use std::sync::Arc;
@@ -43,13 +43,13 @@ impl StorageEngine for Ramdisk {
 async fn main() {
     let sz = 16_000_000; // 16MB
     let ramdisk = Ramdisk::new(sz);
-    let (backend, tx) = userland_io::IOExecutor::new();
-    let export = transport::nbd::Export {
+    let (backend, tx) = nbd::IOExecutor::new();
+    let export = transport::Export {
         size: sz as u64,
         readonly: false,
         ..Default::default()
     };
-    let frontend = transport::nbd::Server::new(tx, export);
+    let frontend = transport::Server::new(tx, export);
     let socket = "127.0.0.1:10809".parse().unwrap();
     futures::select! {
         () = frontend.serve(socket).fuse() => {},

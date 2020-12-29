@@ -1,5 +1,5 @@
 [package]
-name = "userland-io"
+name = "nbd"
 version = "0.1.0-alpha.4"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"

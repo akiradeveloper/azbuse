@@ -14,3 +14,5 @@ tmp*
 
 abuse-proto-bin
 naota-abuse-kmod
+
+dd-read.sh
