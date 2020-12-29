@@ -6,3 +6,6 @@ check-compile.sh
 Module.symvers
 modules.order
 .tmp_versions
+.Module.symvers.cmd
+.modules.order.cmd
+abuse.o

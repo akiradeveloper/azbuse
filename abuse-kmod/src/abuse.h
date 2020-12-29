@@ -4,8 +4,10 @@
 /*
  * include/linux/abuse.h
  *
- * Copyright 2009 by Zachary Amsden.  Redistribution of this file is
- * permitted under the GNU General Public License.
+ * Copyright (c) 2009 by Zachary Amsden. 
+ * Copyright (c) 2021 by Akira Hayakawa.
+ * 
+ * Redistribution of this file is permitted under the GNU General Public License.
  */
 
 /*
@@ -50,17 +52,21 @@ struct abuse_info {
 
 struct abuse_vec {
 	__u64			ab_address;
-	__u32			ab_len;
 	__u32			ab_offset;
+	__u32			ab_len;
 };
 
 struct abuse_xfr_hdr {
 	__u64			ab_id;
-	__u64			ab_sector;
+	__u64			ab_offset;
 	__u32			ab_command;
-	__u32			ab_result;
 	__u32			ab_vec_count;
 	__u64			ab_transfer_address;
+};
+
+struct abuse_completion {
+	__u64 ab_id;
+	__u32 ab_result;
 };
 
 /*
@@ -120,7 +126,6 @@ struct abuse_device {
 
 struct ab_req {
 	struct request		*rq;
-	int			vec_cnt;
 	struct list_head	list;
 };
 
