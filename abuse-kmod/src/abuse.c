@@ -72,16 +72,10 @@ static void abuse_flush_pending_requests(struct abuse_device *ab)
 {
 	struct ab_req *req, *tmp;
 
-	printk("flush");
-
 	spin_lock_irq(&ab->ab_lock);
-	printk("flush X");
 	list_for_each_entry_safe(req, tmp, &ab->ab_reqlist, list) {
-		printk("flush Y");
 		req->rq->rq_flags |= RQF_FAILED;
-		printk("flush Z");
 		compat_complete_request(req->rq);
-		printk("flush A");
 		list_del(&req->list);
 	}
 	spin_unlock_irq(&ab->ab_lock);
@@ -253,8 +247,6 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 	if (copy_from_user(&xfr, arg, sizeof (struct abuse_xfr_hdr)))
 		return -EFAULT;
 
-	printk("ab_transfer_address=%lld", xfr.ab_transfer_address);
-
 	spin_lock_irq(&ab->ab_lock);
 	req = list_first_entry_or_null(&ab->ab_reqlist, struct ab_req, list);
 	if (req) {
@@ -303,7 +295,6 @@ static struct ab_req *abuse_find_req(struct abuse_device *ab, __u64 id)
 
 static inline void abuse_add_req(struct abuse_device *ab, struct ab_req *req)
 {
-	printk("add req");
 	spin_lock_irq(&ab->ab_lock);
 	list_add_tail(&req->list, &ab->ab_reqlist);
 	spin_unlock_irq(&ab->ab_lock);
@@ -345,7 +336,6 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 	}
 
 	compat_spin_lock_irqsave(req->rq->q->queue_lock, flags);
-	printk("complete");
 	blk_mq_end_request(req->rq, 0);
 	compat_spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
 
@@ -372,7 +362,6 @@ static int abuse_acquire(struct file *ctl, unsigned long arg)
 
 	ctl->private_data = ab;
 
-	printk("acquired");
 	return 0;
 }
 
@@ -463,27 +452,19 @@ static unsigned int abctl_poll(struct file *filp, poll_table *wait)
 	unsigned int mask;
 	struct abuse_device *ab = filp->private_data;
 
-	printk("poll");
-
 	if (ab == NULL)
 		return -ENODEV;
 
-	printk("poll X");
 	poll_wait(filp, &ab->ab_event, wait);
-	printk("poll Y");
 
 	mask = (list_empty(&ab->ab_reqlist)) ? 0 : POLLIN;
-	printk("poll mask=%d", mask);
-
 	return mask;
 }
 
 static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
 {
-	printk("called mmap");
 	unsigned long size = vma->vm_end - vma->vm_start;
 	unsigned long pfn = vma->vm_pgoff;
-	printk("pfn=%lu", pfn);
 	return remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 }
 
@@ -555,8 +536,6 @@ static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
 {
 	struct ab_req *req = blk_mq_rq_to_pdu(rq);
 
-	printk("init_request");
-
 	INIT_LIST_HEAD(&req->list);
 	req->rq = rq;
 	return 0;
@@ -567,12 +546,9 @@ static blk_status_t abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_
 	struct ab_req *req = blk_mq_rq_to_pdu(bd->rq);
 	struct abuse_device *ab = req->rq->q->queuedata;
 
-	printk("queue_rq");
-
 	blk_mq_start_request(bd->rq);
 
 	spin_lock_irq(&ab->ab_lock);
-	printk("queue_rq X");
 	list_add_tail(&req->list, &ab->ab_reqlist);
 	wake_up(&ab->ab_event);
 	spin_unlock_irq(&ab->ab_lock);
@@ -644,7 +620,6 @@ static struct abuse_device *abuse_alloc(int i)
 	spin_lock_init(&ab->ab_lock);
 	INIT_LIST_HEAD(&ab->ab_reqlist);
 
-	printk("ab device allocate ok [%d]", i);
 	return ab;
 
 out_free_queue:

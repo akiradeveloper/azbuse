@@ -17,6 +17,7 @@ pub struct AbuseInfo {
     errors: u32,
     max_vecs: u32,
 }
+
 #[repr(C)]
 #[derive(Default)]
 pub struct AbuseXfr {
@@ -26,6 +27,7 @@ pub struct AbuseXfr {
     io_vec_count: u32,
     io_vec_address: u64,
 }
+
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
 struct AbuseXfrIoVec {
@@ -33,6 +35,7 @@ struct AbuseXfrIoVec {
     offset: u32,
     len: u32,
 }
+
 #[repr(C)]
 #[derive(Default)]
 pub struct AbuseCompletion {
@@ -170,7 +173,6 @@ fn main() {
         // timeout = None
         poll.poll(&mut events, None).expect("failed to poll");
         'poll: for ev in &events {
-            println!("got events!");
             loop {
                 if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
                     break 'poll;
@@ -179,18 +181,14 @@ fn main() {
                 let n = xfr.io_vec_count as usize;
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
                 let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
-                println!("id={},command={},offset={},io_vec_cnt={}", xfr.id, xfr.command, xfr.offset, xfr.io_vec_count);
 
                 let mut chunks = vec![];
                 for i in 0..n {
                     let io_vec = &xfr_io_vec[i];
-                    println!("addr={:0x},offset={},len={}", io_vec.address, io_vec.offset, io_vec.len);
                     assert!(io_vec.address % 4096 == 0);
 
-                    // experimental: let's see overhead!
                     let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                     let page_address = io_vec.address as i64;
-                    println!("page_address={}", page_address);
                     let map_len = io_vec.offset as usize + io_vec.len as usize;
                     let mut prot_flags = ProtFlags::empty();
                     prot_flags.insert(ProtFlags::PROT_READ);
@@ -199,7 +197,6 @@ fn main() {
                     map_flags.insert(MapFlags::MAP_SHARED);
                     map_flags.insert(MapFlags::MAP_POPULATE);
                     let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
-                    println!("p(mapped)={:?}", p);
 
                     chunks.push(IoChunk {
                         page_address: unsafe { std::mem::transmute::<*const c_void, usize>(p) },
