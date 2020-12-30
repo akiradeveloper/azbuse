@@ -39,7 +39,7 @@ impl StorageEngine for Ramdisk {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let sz = 4096 * 40_000;
     let ramdisk = Ramdisk::new(sz);
