@@ -6,7 +6,7 @@
  * 
  * Copyright (c) 2009 Zachary Amsden
  * Copyright (c) 2015 Naohiro Aota
- * Copyright (c) 2021 Akira HayakawaA (ruby.wktk@gmail.com)
+ * Copyright (c) 2021 Akira Hayakawa <ruby.wktk@gmail.com>
  * 
  * Redistribution of this file is permitted under the GNU General Public License.
  */
@@ -449,8 +449,8 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 static unsigned int abctl_poll(struct file *filp, poll_table *wait)
 {
-	unsigned int mask;
 	struct abuse_device *ab = filp->private_data;
+	unsigned int mask;
 
 	if (ab == NULL)
 		return -ENODEV;
@@ -470,16 +470,13 @@ static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
 
 static int abctl_release(struct inode *inode, struct file *filp)
 {
-	struct file *dev = filp->private_data;
+	struct abuse_device *ab = filp->private_data;
 
-	if (dev) {
-		struct abuse_device *ab = dev->private_data;
-
-		fput(dev);
-		filp->private_data = NULL;
-		if (!ab)
-			return -ENODEV;
+	if (!ab) {
+		return -ENODEV;
 	}
+
+	filp->private_data = NULL;
 
 	return 0;
 }

@@ -6,7 +6,7 @@
  *
  * Copyright (c) 2009 Zachary Amsden
  * Copyright (c) 2015 Naohiro Aota
- * Copyright (c) 2021 Akira Hayakawa (ruby.wktk@gmail.com)
+ * Copyright (c) 2021 Akira Hayakawa <ruby.wktk@gmail.com>
  * 
  * Redistribution of this file is permitted under the GNU General Public License.
  */
