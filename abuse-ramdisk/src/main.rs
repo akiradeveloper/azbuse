@@ -196,6 +196,7 @@ fn main() {
                     let mut map_flags = MapFlags::empty();
                     map_flags.insert(MapFlags::MAP_SHARED);
                     map_flags.insert(MapFlags::MAP_POPULATE);
+                    map_flags.insert(MapFlags::MAP_NONBLOCK);
                     let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
 
                     chunks.push(IoChunk {
