@@ -3,6 +3,7 @@ use mio::{Poll, Interest, Token, Events};
 use mio::unix::SourceFd;
 use core::ffi::c_void;
 use nix::sys::mman::{mmap, munmap, ProtFlags, MapFlags};
+use tokio_stream::StreamExt;
 
 #[repr(C)]
 #[derive(Default, Debug)]
@@ -183,7 +184,7 @@ async fn main() -> anyhow::Result<()> {
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
                 let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
 
-                let mut futs = vec![];
+                let mut futs = futures::stream::FuturesOrdered::new();
                 for i in 0..n {
                     let io_vec = &xfr_io_vec[i];
                     assert!(io_vec.address % 4096 == 0);
@@ -215,14 +216,17 @@ async fn main() -> anyhow::Result<()> {
                     });
                     futs.push(fut);
                 }
-                let xs = futures::future::join_all(futs).await;
                 let mut chunks = vec![];
-                for x in xs {
-                    if let Ok(x) = x {
-                        chunks.push(x);
+                while !futs.is_empty() {
+                    if let Some(x) = futs.next().await {
+                        if let Ok(x) = x {
+                            chunks.push(x);
+                        } else {
+                            // Something happened in the spawned thread.
+                            break 'poll;
+                        }
                     } else {
-                        // Something happened in the spawned thread.
-                        break 'poll;
+                        break;
                     }
                 }
 
