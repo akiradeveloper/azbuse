@@ -124,7 +124,8 @@ const MAX_QUEUE: usize = 1<<16;
 struct Opts {
     dev_number: u16
 }
-fn main() {
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> anyhow::Result<()> {
     use nix::fcntl::{open, OFlag};
     use nix::sys::stat::Mode;
 
@@ -182,34 +183,53 @@ fn main() {
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
                 let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
 
-                let mut chunks = vec![];
+                let mut futs = vec![];
                 for i in 0..n {
                     let io_vec = &xfr_io_vec[i];
                     assert!(io_vec.address % 4096 == 0);
 
-                    let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
-                    let page_address = io_vec.address as i64;
+                    // This address is page-aligned.
+                    let page_address = io_vec.address as usize;
+                    // TODO: better be multiple of page size
                     let map_len = io_vec.offset as usize + io_vec.len as usize;
-                    let mut prot_flags = ProtFlags::empty();
-                    prot_flags.insert(ProtFlags::PROT_READ);
-                    prot_flags.insert(ProtFlags::PROT_WRITE);
-                    let mut map_flags = MapFlags::empty();
-                    map_flags.insert(MapFlags::MAP_SHARED);
-                    map_flags.insert(MapFlags::MAP_POPULATE);
-                    map_flags.insert(MapFlags::MAP_NONBLOCK);
-                    let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
+                    let page_offset = io_vec.offset as usize;
+                    let io_len = io_vec.len as usize;
 
-                    chunks.push(IoChunk {
-                        page_address: unsafe { std::mem::transmute::<*const c_void, usize>(p) },
-                        page_offset: io_vec.offset as usize,
-                        io_len: io_vec.len as usize,
+                    let fut = tokio::task::spawn_blocking(move || {
+                        // No starting address is set.
+                        let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
+
+                        let mut prot_flags = ProtFlags::empty();
+                        prot_flags.insert(ProtFlags::PROT_READ);
+                        prot_flags.insert(ProtFlags::PROT_WRITE);
+                        let mut map_flags = MapFlags::empty();
+                        map_flags.insert(MapFlags::MAP_SHARED);
+                        map_flags.insert(MapFlags::MAP_POPULATE);
+                        map_flags.insert(MapFlags::MAP_NONBLOCK);
+                        let mapped_address = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address as i64) }.expect("failed to mmap");
+                        IoChunk {
+                            page_address: unsafe { std::mem::transmute::<*const c_void, usize>(mapped_address) },
+                            page_offset,
+                            io_len,
+                        }
                     });
+                    futs.push(fut);
+                }
+                let xs = futures::future::join_all(futs).await;
+                let mut chunks = vec![];
+                for x in xs {
+                    if let Ok(x) = x {
+                        chunks.push(x);
+                    } else {
+                        // Something happened in the spawned thread.
+                        break 'poll;
+                    }
                 }
 
                 if xfr.command == 0 {
-                    membuf.read(xfr.offset as usize, &chunks);
+                    membuf.read(xfr.offset as usize, chunks.as_slice());
                 } else {
-                    membuf.write(xfr.offset as usize, &chunks);
+                    membuf.write(xfr.offset as usize, chunks.as_slice());
                 }
 
                 let cmplt = AbuseCompletion {
