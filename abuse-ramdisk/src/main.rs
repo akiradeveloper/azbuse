@@ -65,6 +65,56 @@ nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
 nix::ioctl_read_bad!(abuse_get_req, ABUSE_GET_REQ, AbuseXfr);
 nix::ioctl_write_ptr_bad!(abuse_put_req, ABUSE_PUT_REQ, AbuseCompletion);
 
+
+const REQ_OP_BITS: u32 = 8;
+const REQ_OP_MASK: u32 = (1<<REQ_OP_BITS) - 1;
+
+// linux/blk_type.h
+mod req_op {
+    const READ: u32 = 0;
+    const WRITE: u32 = 1;
+    const FLUSH: u32 = 2;
+    const DISCARD: u32 = 3;
+    const SECURE_ERASE: u32 = 5;
+    const WRITE_SAME: u32 = 7;
+    const WRITE_ZEROES: u32 = 9;
+    const ZONE_OPEN: u32 = 10;
+    const ZONE_CLOSE: u32 = 11;
+    const ZONE_FINISH: u32 = 12;
+    const ZONE_APPEND: u32 = 13;
+    const ZONE_RESET: u32 = 15;
+    const ZONE_RESET_ALL: u32 = 17;
+    const SCSI_IN: u32 = 32;
+    const SCSI_OUT: u32 = 33;
+    const DRV_IN: u32 = 34;
+    const DRV_OUT: u32 = 35;
+    const LAST: u32 = 36;
+}
+
+// linux/blk_type.h
+mod req_flag_bits {
+    const FAILFAST_DEV: u32 = 0;
+    const FAILFAST_TRANSPORT: u32 = 9;
+    const FAILFAST_DRIVER: u32 = 10;
+    const SYNC: u32 = 11;
+    const META: u32 = 12;
+    const PRIO: u32 = 13;
+    const NOMERGE: u32 = 14;
+    const IDLE: u32 = 15;
+    const INTEGRITY: u32 = 16;
+    const FUA: u32 = 17;
+    const PREFLUSH: u32 = 18;
+    const RAHEAD: u32 = 19;
+    const BACKGROUND: u32 = 20;
+    const NOWAIT: u32 = 21;
+    const CGROUP_PUNT: u32 = 22;
+    const NOUNMAP: u32 = 23;
+    const HIPRI: u32 = 24;
+    const DRV: u32 = 25;
+    const SWAP: u32 = 26;
+    const NR_BITS: u32 = 27;
+}
+
 struct IoChunk {
     page_address: usize,
     page_offset: usize,
@@ -83,6 +133,15 @@ impl Drop for IoChunk {
         let p = unsafe { std::mem::transmute::<usize, *mut c_void>(self.page_address) };
         let map_len = self.page_offset + self.io_len;
         unsafe { munmap(p, map_len) }.expect("failed to munmap");
+    }
+}
+struct Request {
+    cmd_flags: u32,
+    io_chunks: Vec<IoChunk>,
+}
+impl Request {
+    fn req_op(&self) -> u32 {
+        self.cmd_flags & REQ_OP_MASK
     }
 }
 
