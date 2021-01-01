@@ -3,6 +3,7 @@ use mio::{Poll, Interest, Token, Events};
 use mio::unix::SourceFd;
 use core::ffi::c_void;
 use nix::sys::mman::{mmap, munmap, ProtFlags, MapFlags};
+use bitflags::bitflags;
 
 #[repr(C)]
 #[derive(Default, Debug)]
@@ -65,7 +66,6 @@ nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
 nix::ioctl_read_bad!(abuse_get_req, ABUSE_GET_REQ, AbuseXfr);
 nix::ioctl_write_ptr_bad!(abuse_put_req, ABUSE_PUT_REQ, AbuseCompletion);
 
-
 const REQ_OP_BITS: u32 = 8;
 const REQ_OP_MASK: u32 = (1<<REQ_OP_BITS) - 1;
 
@@ -75,15 +75,20 @@ mod req_op {
     const WRITE: u32 = 1;
     const FLUSH: u32 = 2;
     const DISCARD: u32 = 3;
+    // 4 removed in 4.20
     const SECURE_ERASE: u32 = 5;
     const WRITE_SAME: u32 = 7;
+    // 8 isn't seen in 4.14
     const WRITE_ZEROES: u32 = 9;
+
+    // these are not seen in 5.1
     const ZONE_OPEN: u32 = 10;
     const ZONE_CLOSE: u32 = 11;
     const ZONE_FINISH: u32 = 12;
     const ZONE_APPEND: u32 = 13;
     const ZONE_RESET: u32 = 15;
     const ZONE_RESET_ALL: u32 = 17;
+
     const SCSI_IN: u32 = 32;
     const SCSI_OUT: u32 = 33;
     const DRV_IN: u32 = 34;
@@ -92,27 +97,34 @@ mod req_op {
 }
 
 // linux/blk_type.h
-mod req_flag_bits {
-    const FAILFAST_DEV: u32 = 0;
-    const FAILFAST_TRANSPORT: u32 = 9;
-    const FAILFAST_DRIVER: u32 = 10;
-    const SYNC: u32 = 11;
-    const META: u32 = 12;
-    const PRIO: u32 = 13;
-    const NOMERGE: u32 = 14;
-    const IDLE: u32 = 15;
-    const INTEGRITY: u32 = 16;
-    const FUA: u32 = 17;
-    const PREFLUSH: u32 = 18;
-    const RAHEAD: u32 = 19;
-    const BACKGROUND: u32 = 20;
-    const NOWAIT: u32 = 21;
-    const CGROUP_PUNT: u32 = 22;
-    const NOUNMAP: u32 = 23;
-    const HIPRI: u32 = 24;
-    const DRV: u32 = 25;
-    const SWAP: u32 = 26;
-    const NR_BITS: u32 = 27;
+bitflags! {
+    pub struct ReqFlags: u32 {
+        const FAILFAST_DEV = 1<<REQ_OP_BITS;
+        const FAILFAST_TRANSPORT = 1<<9;
+        const FAILFAST_DRIVER = 1<<10;
+        const SYNC = 1<<11;
+        const META = 1<<12;
+        const PRIO = 1<<13;
+        const NOMERGE = 1<<14;
+        const IDLE = 1<<15;
+        const INTEGRITY = 1<<16;
+        const FUA = 1<<17;
+        const PREFLUSH = 1<<18;
+        const RAHEAD = 1<<19;
+        const BACKGROUND = 1<<20;
+        const NOWAIT = 1<<21;
+        
+        const CGROUP_PUNT = 1<<22; // not in 5.1
+
+        const NOUNMAP = 1<<23;
+        const HIPRI = 1<<24;
+        const DRV = 1<<25;
+        const SWAP = 1<<26;
+        const NR_BITS = 1<<27;
+
+        const FAILFAST_MASK = Self::FAILFAST_DEV.bits | Self::FAILFAST_TRANSPORT.bits | Self::FAILFAST_DRIVER.bits;
+        const NOMERGE_MASK = Self::NOMERGE.bits | Self::PREFLUSH.bits | Self::FUA.bits;
+    }
 }
 
 struct IoChunk {
