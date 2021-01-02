@@ -2,6 +2,8 @@
 members = [
     "nbd",
     "nbd-ramdisk",
-    "abuse",
+    "blk-sys",
+    "blk-sys/bootstrap",
+    "abusectl",
     "abuse-ramdisk",
 ]

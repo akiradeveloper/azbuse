@@ -16,3 +16,5 @@ abuse-ramdisk-bin
 naota-abuse-kmod
 
 dd-read.sh
+dd-perf.sh
+log

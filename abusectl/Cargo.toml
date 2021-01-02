@@ -1,5 +1,5 @@
 [package]
-name = "abuse"
+name = "abusectl"
 version = "0.1.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
@@ -7,6 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-[build-dependencies]
-bindgen = "0.56"
+clap = "3.0.0-beta.2"
+nix = "0.19"
