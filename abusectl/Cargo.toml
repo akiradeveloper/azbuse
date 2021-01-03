@@ -1,5 +1,5 @@
 [package]
-name = "abuse-ramdisk"
+name = "abusectl"
 version = "0.1.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
@@ -7,13 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1"
-nix = "0.19"
-mio = { version = "0.7", features = ["os-poll", "os-ext"] }
-anyhow = "1.0"
 clap = "3.0.0-beta.2"
-bitflags = "1"
-tokio = "1"
-libc = "0.2"
-
-abuse = { path = "../abuse" }
+nix = "0.19"
