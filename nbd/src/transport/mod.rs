@@ -3,11 +3,12 @@ use tokio::net::{TcpStream, TcpListener};
 use tokio_stream::StreamExt;
 use tokio::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tokio::io::{ReadHalf, WriteHalf, AsyncWriteExt, AsyncReadExt};
-use crate::{Request, Response, IORequest, IOResponse, IOResponseInner, IORequestInner};
+use crate::{Response, IORequest, IOResponse, StorageEngine};
 use std::io::Result;
 use protocol::io;
 use futures::select;
 use futures::future::FutureExt;
+use std::sync::Arc;
 
 mod protocol;
 use protocol::handshake::*;
@@ -21,8 +22,8 @@ fn strerror(s: &'static str) -> std::io::Result<()> {
 }
 
 struct RequestHandler {
+    engine: Arc<StorageEngine>,
     read_stream: ReadHalf<TcpStream>,
-    request_tx: UnboundedSender<Request>,
     response_tx: UnboundedSender<Response>,
 }
 impl RequestHandler {
@@ -39,55 +40,43 @@ impl RequestHandler {
         let length = io::read_u32(c).await?;
 
         let request_id = handle;
-        match typ {
+        let req = match typ {
             NBD_CMD_READ => {
-                let req = Request {
-                    inner: IORequestInner::IORequest(IORequest::Read {
-                        offset,
-                        length,
-                    }),
-                    tx: self.response_tx.clone(),
-                    request_id,
-                };
-                let _ = self.request_tx.send(req);
+                IORequest::Read {
+                    offset,
+                    length,
+                }
             },
             NBD_CMD_WRITE => {
                 let mut buf = vec![0; length as usize];
                 let _ = c.read_exact(&mut buf).await;
-                let req = Request {
-                    inner: IORequestInner::IORequest(IORequest::Write {
-                        payload: buf,
-                        offset,
-                        length,
-                        fua: false,
-                    }),
-                    tx: self.response_tx.clone(),
-                    request_id,
-                };
-                let _ = self.request_tx.send(req);
+                IORequest::Write {
+                    payload: buf,
+                    offset,
+                    length,
+                    fua: false,
+                }
             },
             NBD_CMD_DISC => {
-                return Ok(())
+                IORequest::Unknown
             }
             NBD_CMD_FLUSH => {
-                let req = Request {
-                    inner: IORequestInner::IORequest(IORequest::Flush),
-                    tx: self.response_tx.clone(),
-                    request_id,
-                };
-                let _ = self.request_tx.send(req);
+                IORequest::Flush
             }
             NBD_CMD_TRIM | NBD_CMD_WRITE_ZEROES => {
-                let req = Request {
-                    // Not implemented
-                    inner: IORequestInner::Echo(38),
-                    tx: self.response_tx.clone(),
-                    request_id,
-                };
-                let _ = self.request_tx.send(req);
+                IORequest::Unknown
             }
-            _ => {}
-        }
+            _ => {
+                IORequest::Unknown
+            }
+        };
+        let tx = self.response_tx.clone();
+        let engine = Arc::clone(&self.engine);
+        tokio::spawn(async move {
+            let resp = engine.call(req).await;
+            let resp = Response { inner: resp, request_id };
+            let _ = tx.send(resp);
+        });
         Ok(())
     }
     async fn run(mut self) {
@@ -105,8 +94,8 @@ impl ResponseHandler {
         let c = &mut self.write_stream;
         let handle = resp.request_id;
         match resp.inner {
-            Ok(IOResponseInner::IOResponse(req)) => {
-                match req {
+            Ok(res) => {
+                match res {
                     IOResponse::Ok => {
                         reply(c, 0, handle).await?;
                     },
@@ -116,9 +105,6 @@ impl ResponseHandler {
                     },
                 }
             }
-            Ok(IOResponseInner::Echo(n)) => {
-                let _ = reply(c, n, handle).await;
-            },
             Err(e) => {
                 let e = e.raw_os_error().unwrap_or(5) as u32;
                 let _ = reply(c, e, handle).await;
@@ -133,17 +119,16 @@ impl ResponseHandler {
     }
 }
 pub struct Server {
-    request_tx: UnboundedSender<Request>,
     export: Export
 }
 impl Server {
-    pub fn new(request_tx: UnboundedSender<Request>, export: Export) -> Self {
+    pub fn new(export: Export) -> Self {
         Self {
-            request_tx,
             export,
         }
     }
-    pub async fn serve(self, socket: SocketAddr) {
+    pub async fn serve(self, socket: SocketAddr, engine: impl StorageEngine) {
+        let engine = Arc::new(engine);
         let mut listener = TcpListener::bind(socket).await.unwrap();
         while let Ok((mut stream, _)) = listener.accept().await {
             match handshake(&mut stream, &self.export).await {
@@ -151,8 +136,8 @@ impl Server {
                     let (read_stream, write_stream) = tokio::io::split(stream);
                     let (response_tx, response_rx) = mpsc::unbounded_channel::<Response>();
                     let request_handler = RequestHandler {
+                        engine: engine.clone(),
                         read_stream,
-                        request_tx: self.request_tx.clone(),
                         response_tx,
                     };
                     let response_handler = ResponseHandler {

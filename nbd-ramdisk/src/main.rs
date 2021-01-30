@@ -35,24 +35,23 @@ impl StorageEngine for Ramdisk {
             IORequest::Flush => {
                 Ok(IOResponse::Ok)
             },
+            IORequest::Unknown => {
+                Err(std::io::Error::from_raw_os_error(95))
+            }
         }
     }
 }
 
-#[tokio::main(flavor = "multi_thread")]
+#[tokio::main]
 async fn main() {
-    let sz = 4096 * 40_000;
-    let ramdisk = Ramdisk::new(sz);
-    let (backend, tx) = nbd::IOExecutor::new();
+    let sz = 160 << 20; // 160MB
+    let engine = Ramdisk::new(sz);
     let export = transport::Export {
         size: sz as u64,
         readonly: false,
         ..Default::default()
     };
-    let frontend = transport::Server::new(tx, export);
+    let server = transport::Server::new(export);
     let socket = "127.0.0.1:10809".parse().unwrap();
-    futures::select! {
-        () = frontend.serve(socket).fuse() => {},
-        () = backend.run(ramdisk).fuse() => {},
-    }
+    server.serve(socket, engine).await;
 }

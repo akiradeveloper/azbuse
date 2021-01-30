@@ -7,43 +7,6 @@ use std::sync::Arc;
 
 pub mod transport;
 
-pub struct IOExecutor {
-    rx: UnboundedReceiver<Request>,
-}
-impl IOExecutor {
-    pub fn new() -> (Self, UnboundedSender<Request>) {
-        let (request_tx, request_rx) = mpsc::unbounded_channel();
-        let x = Self {
-            rx: request_rx,
-        };
-        (x, request_tx)
-    }
-    pub async fn run<E: StorageEngine>(mut self, engine: E) {
-        let engine = Arc::new(engine);
-        while let Some(req) = self.rx.recv().await {
-            let engine = Arc::clone(&engine);
-            let fut = async move {
-                let Request { inner, tx, request_id } = req;
-                match inner {
-                    IORequestInner::Echo(n) => {
-                        let resp = Response { inner: Ok(IOResponseInner::Echo(n)), request_id };
-                        let _ = tx.send(resp);
-                    },
-                    IORequestInner::IORequest(req) => {
-                        let resp_inner = engine.call(req).await;
-                        let resp = Response { inner: resp_inner.map(|x| IOResponseInner::IOResponse(x)), request_id };
-                        let _ = tx.send(resp);
-                    }
-                }
-            };
-            tokio::spawn(fut);
-        }
-    }
-}
-enum IORequestInner {
-    IORequest(IORequest),
-    Echo(u32),
-}
 pub enum IORequest {
     Write {
         offset: u64,
@@ -66,10 +29,7 @@ pub enum IORequest {
     //     length: u32,
     //     fua: bool,
     // },
-}
-enum IOResponseInner {
-    IOResponse(IOResponse),
-    Echo(u32),
+    Unknown,
 }
 pub enum IOResponse {
     Ok,
@@ -77,13 +37,8 @@ pub enum IOResponse {
         payload: Vec<u8>,
     },
 }
-pub struct Request {
-    inner: IORequestInner,
-    tx: UnboundedSender<Response>,
-    request_id: u64,
-}
 struct Response {
-    inner: Result<IOResponseInner>,
+    inner: Result<IOResponse>,
     request_id: u64,
 }
 
