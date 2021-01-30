@@ -204,6 +204,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     map_flags.insert(MapFlags::MAP_SHARED);
                     map_flags.insert(MapFlags::MAP_POPULATE);
                     map_flags.insert(MapFlags::MAP_NONBLOCK);
+                    // Last argument page_offset should be a multiple of page size
+                    // This passes to xxx_mmap as vma.pg_off after 9 right shift.
                     let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
 
                     io_vecs.push(IOVec {
