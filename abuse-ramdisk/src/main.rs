@@ -1,9 +1,5 @@
 use clap::Clap;
-use mio::{Poll, Interest, Token, Events};
-use mio::unix::SourceFd;
 use core::ffi::c_void;
-use nix::sys::mman::{mmap, munmap, ProtFlags, MapFlags};
-use bitflags::bitflags;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use async_trait::async_trait;
@@ -15,9 +11,6 @@ struct Opts {
 }
 #[tokio::main]
 async fn main() {
-    use nix::fcntl::{open, OFlag};
-    use nix::sys::stat::Mode;
-
     let opts = Opts::parse();
     let dev_number = opts.dev_number;
     let sz = 160 << 20; // 160MB
@@ -35,7 +28,7 @@ struct Engine {
     mem: Arc<RwLock<MemBuffer>>,
 }
 #[async_trait]
-impl abuse::StorageEngine for Engine {
+impl StorageEngine for Engine {
     async fn call(&self, req: Request) -> Response {
         let id = req.request_id;
         let req_op = req.cmd_flags & CmdFlags::OP_MASK;
