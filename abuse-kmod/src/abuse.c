@@ -130,7 +130,7 @@ static int abuse_set_status_int(struct abuse_device *ab, struct block_device *bd
 {
 	int err;
 
-	sector_t size = (sector_t)(info->ab_size >> 9);
+	sector_t size = (sector_t)(info->ab_size >> SECTOR_SHIFT);
 	loff_t blocks;
 
 	if (unlikely((loff_t)size != size))
@@ -186,7 +186,7 @@ static int abuse_set_status_int(struct abuse_device *ab, struct block_device *bd
 	set_capacity(ab->ab_disk, size);
 	set_device_ro(bdev, (ab->ab_flags & ABUSE_FLAGS_READ_ONLY) != 0);
 	set_capacity(ab->ab_disk, size);
-	bd_set_size(bdev, size << 9);
+	bd_set_size(bdev, size << SECTOR_SHIFT);
 	set_blocksize(bdev, ab->ab_blocksize);
 	if (max_part > 0)
 		reread_partition(bdev);
@@ -234,6 +234,52 @@ abuse_get_status(struct abuse_device *ab, struct block_device *bdev, struct abus
 	return err;
 }
 
+static unsigned xfr_command_from_cmd_flags(unsigned cmd_flags) {
+	unsigned int ret = 0;
+	switch (cmd_flags & REQ_OP_BITS) {
+		case REQ_OP_READ:
+			ret = CMD_OP_READ;
+			break;
+		case REQ_OP_WRITE:
+			ret = CMD_OP_WRITE;
+			break;
+		case REQ_OP_FLUSH:
+			ret = CMD_OP_FLUSH;
+			break;
+		case REQ_OP_DISCARD:
+			ret = CMD_OP_DISCARD;
+			break;
+		case REQ_OP_SECURE_ERASE:
+			ret = CMD_OP_SECURE_ERASE;
+			break;
+		case REQ_OP_WRITE_SAME:
+			ret = CMD_OP_WRITE_SAME;
+			break;
+		case REQ_OP_WRITE_ZEROES:
+			ret = CMD_OP_WRITE_ZEROES;
+			break;
+		default:
+			ret = CMD_OP_UNKNOWN;
+			break;
+	}
+	if (cmd_flags & REQ_FUA) {
+		ret |= CMD_FUA;
+	}
+	if (cmd_flags & REQ_PREFLUSH) {
+		ret |= CMD_PREFLUSH;
+	}
+	if (cmd_flags & REQ_NOUNMAP) {
+		ret |= CMD_NOUNMAP;
+	}
+	if (cmd_flags & REQ_NOWAIT) {
+		ret |= CMD_NOWAIT;
+	}
+	if (cmd_flags & REQ_RAHEAD) {
+		ret |= CMD_RAHEAD;
+	}
+	return ret;
+}
+
 static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *arg)
 {
 	struct abuse_xfr_hdr xfr;
@@ -259,8 +305,9 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 
 		// Use the pointer address as the unique id of the request
 		xfr.ab_id = (__u64)req;
-		xfr.ab_command = rq_data_dir(req->rq);
+		xfr.ab_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
 		xfr.ab_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
+		xfr.ab_len = blk_rq_bytes(req->rq);
 		rq_for_each_segment(bvec, req->rq, iter) {
 			// physical address of the page
 			ab->ab_xfer[i].ab_address = (__u64)page_to_phys(bvec.bv_page);
@@ -314,11 +361,6 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 	if (copy_from_user(&xfr, arg, sizeof (struct abuse_completion)))
 		return -EFAULT;
 
-	if (unlikely(xfr.ab_result == ABUSE_RESULT_DEVICE_FAILURE)) {
-		abuse_flush_pending_requests(ab);
-		return 0;
-	}
-
 	// Find the request to complete
 	spin_lock_irq(&ab->ab_lock);
 	req = abuse_find_req(ab, xfr.ab_id);
@@ -330,13 +372,8 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 	}
 	spin_unlock_irq(&ab->ab_lock);
 
-	if (unlikely(xfr.ab_result == ABUSE_RESULT_MEDIA_FAILURE)) {
-		blk_mq_end_request(req->rq, -EIO);
-		return 0;
-	}
-
 	compat_spin_lock_irqsave(req->rq->q->queue_lock, flags);
-	blk_mq_end_request(req->rq, 0);
+	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.ab_errno));
 	compat_spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
 
 	return 0;

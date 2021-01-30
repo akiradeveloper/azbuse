@@ -11,9 +11,6 @@
  * Redistribution of this file is permitted under the GNU General Public License.
  */
 
-/*
- * Loop flags
- */
 enum {
 	ABUSE_FLAGS_READ_ONLY	= 1,
 	ABUSE_FLAGS_RECONNECT	= 2,
@@ -32,10 +29,6 @@ struct abuse_info {
 	__u32		   ab_errors;			/* ioctl r/o */
 	__u32		   ab_max_vecs;			/* ioctl r/o */
 };
-
-/*
- * IOCTL commands 
- */
 
 #define ABUSE_GET_STATUS	0x4120
 #define ABUSE_SET_STATUS	0x4121
@@ -57,9 +50,26 @@ struct abuse_vec {
 	__u32			ab_len;
 };
 
+#define CMD_OP_WRITE 0
+#define CMD_OP_READ 1
+#define CMD_OP_FLUSH 2
+#define CMD_OP_WRITE_SAME 3
+#define CMD_OP_WRITE_ZEROES 4
+#define CMD_OP_DISCARD 5
+#define CMD_OP_SECURE_ERASE 6
+#define CMD_OP_UNKNOWN 255
+
+#define CMD_FUA 1<<8
+#define CMD_PREFLUSH 1<<9
+#define CMD_NOUNMAP 1<<10
+#define CMD_NOWAIT 1<<11
+#define CMD_IDLE 1<<12
+#define CMD_RAHEAD 1<<13
+
 struct abuse_xfr_hdr {
 	__u64			ab_id;
 	__u64			ab_offset;
+	__u64			ab_len;
 	__u32			ab_command;
 	__u32			ab_vec_count;
 	__u64			ab_transfer_address;
@@ -67,25 +77,7 @@ struct abuse_xfr_hdr {
 
 struct abuse_completion {
 	__u64 ab_id;
-	__u32 ab_result;
-};
-
-/*
- * ab_commnd codes 
- */
-enum {
-	ABUSE_READ			= 0,
-	ABUSE_WRITE			= 1,
-	ABUSE_SYNC_NOTIFICATION		= 2
-};
-
-/*
- * ab_result codes 
- */
-enum {
-	ABUSE_RESULT_OKAY		= 0,
-	ABUSE_RESULT_MEDIA_FAILURE	= 1,
-	ABUSE_RESULT_DEVICE_FAILURE	= 2
+	__u32 ab_errno;
 };
 
 #define ABUSE_MAJOR    60
