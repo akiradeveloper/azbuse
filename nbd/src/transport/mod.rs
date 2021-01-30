@@ -20,11 +20,6 @@ fn strerror(s: &'static str) -> std::io::Result<()> {
     Err(std::io::Error::new(std::io::ErrorKind::InvalidData, s))
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Context {
-    handle: u64,
-}
-
 struct RequestHandler {
     read_stream: ReadHalf<TcpStream>,
     request_tx: UnboundedSender<Request>,
@@ -43,11 +38,7 @@ impl RequestHandler {
         let offset = io::read_u64(c).await?;
         let length = io::read_u32(c).await?;
 
-        let context = Context {
-            handle,
-        };
-        let context = rmp_serde::to_vec(&context).unwrap();
-
+        let request_id = handle;
         match typ {
             NBD_CMD_READ => {
                 let req = Request {
@@ -56,7 +47,7 @@ impl RequestHandler {
                         length,
                     }),
                     tx: self.response_tx.clone(),
-                    context,
+                    request_id,
                 };
                 let _ = self.request_tx.send(req);
             },
@@ -71,7 +62,7 @@ impl RequestHandler {
                         fua: false,
                     }),
                     tx: self.response_tx.clone(),
-                    context,
+                    request_id,
                 };
                 let _ = self.request_tx.send(req);
             },
@@ -82,7 +73,7 @@ impl RequestHandler {
                 let req = Request {
                     inner: IORequestInner::IORequest(IORequest::Flush),
                     tx: self.response_tx.clone(),
-                    context,
+                    request_id,
                 };
                 let _ = self.request_tx.send(req);
             }
@@ -91,7 +82,7 @@ impl RequestHandler {
                     // Not implemented
                     inner: IORequestInner::Echo(38),
                     tx: self.response_tx.clone(),
-                    context,
+                    request_id,
                 };
                 let _ = self.request_tx.send(req);
             }
@@ -112,8 +103,7 @@ struct ResponseHandler {
 impl ResponseHandler {
     async fn run_once(&mut self, resp: Response) -> Result<()> {
         let c = &mut self.write_stream;
-        let context: Context = rmp_serde::from_slice(&resp.context).unwrap();
-        let handle = context.handle;
+        let handle = resp.request_id;
         match resp.inner {
             Ok(IOResponseInner::IOResponse(req)) => {
                 match req {

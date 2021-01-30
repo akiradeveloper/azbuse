@@ -23,15 +23,15 @@ impl IOExecutor {
         while let Some(req) = self.rx.recv().await {
             let engine = Arc::clone(&engine);
             let fut = async move {
-                let Request { inner, tx, context } = req;
+                let Request { inner, tx, request_id } = req;
                 match inner {
                     IORequestInner::Echo(n) => {
-                        let resp = Response { inner: Ok(IOResponseInner::Echo(n)), context };
+                        let resp = Response { inner: Ok(IOResponseInner::Echo(n)), request_id };
                         let _ = tx.send(resp);
                     },
                     IORequestInner::IORequest(req) => {
                         let resp_inner = engine.call(req).await;
-                        let resp = Response { inner: resp_inner.map(|x| IOResponseInner::IOResponse(x)), context };
+                        let resp = Response { inner: resp_inner.map(|x| IOResponseInner::IOResponse(x)), request_id };
                         let _ = tx.send(resp);
                     }
                 }
@@ -80,11 +80,11 @@ pub enum IOResponse {
 pub struct Request {
     inner: IORequestInner,
     tx: UnboundedSender<Response>,
-    context: Vec<u8>,
+    request_id: u64,
 }
 struct Response {
     inner: Result<IOResponseInner>,
-    context: Vec<u8>,
+    request_id: u64,
 }
 
 #[async_trait]

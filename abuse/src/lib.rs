@@ -26,9 +26,6 @@ bitflags! {
     }
 }
 
-const REQ_OP_BITS: u32 = 8;
-const REQ_OP_MASK: u32 = (1<<REQ_OP_BITS) - 1;
-
 #[repr(C)]
 #[derive(Default, Debug)]
 pub struct AbuseInfo {
