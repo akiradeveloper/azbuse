@@ -131,6 +131,8 @@ impl Server {
         let engine = Arc::new(engine);
         let mut listener = TcpListener::bind(socket).await.unwrap();
         while let Ok((mut stream, _)) = listener.accept().await {
+            // Disable Nagle algorithm
+            stream.set_nodelay(true).unwrap();
             match handshake(&mut stream, &self.export).await {
                 Ok(_) => {
                     let (read_stream, write_stream) = tokio::io::split(stream);

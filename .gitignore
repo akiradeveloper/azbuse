@@ -12,9 +12,11 @@ Cargo.lock
 perf*
 tmp*
 
-abuse-ramdisk-bin
-naota-abuse-kmod
+abuse-ramdisk.bin
+nbd-ramdisk.bin
 
 dd-read.sh
 dd-perf.sh
+
 log
+*.log
