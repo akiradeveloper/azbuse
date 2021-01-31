@@ -191,7 +191,9 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 map_flags.insert(MapFlags::MAP_POPULATE);
                 map_flags.insert(MapFlags::MAP_NONBLOCK);
                 // vma.pg_off will not be used
+                println!("mmap n={}, len={}", n, map_len);
                 let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
+                println!("mmap done");
 
                 let mut io_vecs = vec![];
                 let mut cur: usize = unsafe { std::mem::transmute::<*const c_void, usize>(p) };

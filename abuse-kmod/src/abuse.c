@@ -309,8 +309,8 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 		xfr.ab_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
 		xfr.ab_len = blk_rq_bytes(req->rq);
 		xfr.ab_vec_count = 0;
-		ab->ab_xfer_cnt = 0;
 		xfr.n_pages = 0;
+		ab->ab_xfer_cnt = 0;
 		rq_for_each_segment(bvec, req->rq, iter) {
 			// physical address of the page
 			ab->ab_xfer[i].ab_address = (__u64)page_to_phys(bvec.bv_page);
@@ -319,8 +319,8 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 			ab->ab_xfer[i].n_pages = ((bvec.bv_offset + bvec.bv_len) + (4096-1)) / 4096;
 
 			xfr.ab_vec_count++;
-			ab->ab_xfer_cnt++;
 			xfr.n_pages += ab->ab_xfer[i].n_pages;
+			ab->ab_xfer_cnt++;
 
 			i++;
 		}
