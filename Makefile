@@ -3,7 +3,7 @@ doc:
 
 .PHONY: abuse
 abuse:
-	cargo build --release --bin abuse-ramdisk
+	cargo build --release --bin=abuse-ramdisk
 	cp target/release/abuse-ramdisk abuse-ramdisk.bin
 
 .PHONY: nbd
