@@ -115,6 +115,7 @@ struct abuse_device {
 	struct gendisk		*ab_disk;
 
 	/* user xfer area */
+	int ab_xfer_cnt;
 	struct abuse_vec	ab_xfer[BIO_MAX_PAGES];
 };
 

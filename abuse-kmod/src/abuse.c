@@ -309,6 +309,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 		xfr.ab_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
 		xfr.ab_len = blk_rq_bytes(req->rq);
 		xfr.ab_vec_count = 0;
+		ab->ab_xfer_cnt = 0;
 		xfr.n_pages = 0;
 		rq_for_each_segment(bvec, req->rq, iter) {
 			// physical address of the page
@@ -318,6 +319,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 			ab->ab_xfer[i].n_pages = ((bvec.bv_offset + bvec.bv_len) + (4096-1)) / 4096;
 
 			xfr.ab_vec_count++;
+			ab->ab_xfer_cnt++;
 			xfr.n_pages += ab->ab_xfer[i].n_pages;
 
 			i++;
@@ -504,11 +506,20 @@ static unsigned int abctl_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
-static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
+static int abctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	unsigned long size = vma->vm_end - vma->vm_start;
-	unsigned long pfn = vma->vm_pgoff;
-	return remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
+	struct abuse_device *ab = filp->private_data;
+	int n = ab->ab_xfer_cnt;
+	unsigned long cur = vma->vm_start;
+	int err =0;
+	int i;
+	for (i=0; i<n; i++) {
+		unsigned long size = ab->ab_xfer[i].n_pages << 9;
+		unsigned long pfn = ab->ab_xfer[i].ab_address >> 9;
+		err |= remap_pfn_range(vma, cur, pfn, size, vma->vm_page_prot);
+		cur += size;
+	}
+	return err;
 }
 
 static int abctl_release(struct inode *inode, struct file *filp)
