@@ -13,7 +13,7 @@ struct Opts {
 async fn main() {
     let opts = Opts::parse();
     let dev_number = opts.dev_number;
-    let sz = 160 << 20; // 160MB
+    let sz = 1500 << 20; // 1500MB
     let config = abuse::Config {
         dev_number,
         dev_size: sz as u64,

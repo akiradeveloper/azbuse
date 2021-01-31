@@ -44,7 +44,7 @@ impl StorageEngine for Ramdisk {
 
 #[tokio::main]
 async fn main() {
-    let sz = 160 << 20; // 160MB
+    let sz = 1500 << 20; // 1500MB
     let engine = Ramdisk::new(sz);
     let export = transport::Export {
         size: sz as u64,
