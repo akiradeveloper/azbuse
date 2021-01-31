@@ -20,7 +20,7 @@ $ ./nbd-ramdisk.bin
 # nbd-client localhost 10809 /dev/nbd0
 ```
 
-- `-block-size 4096` sets the logical/physical block size to 4096 (default 512)
+- `-b4096` sets the logical/physical block size to 4096 (default 512)
 
 ### Disconnect
 

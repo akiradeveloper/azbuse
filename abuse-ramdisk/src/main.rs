@@ -71,7 +71,7 @@ impl MemBuffer {
         let mut offset = offset;
         for io_vec in io_vecs {
             let n = io_vec.len();
-            let mut dst = self.buf[offset ..].as_ptr();
+            let dst = self.buf[offset ..].as_ptr();
             let dst = unsafe { std::mem::transmute::<*const u8, *mut c_void>(dst) };
             unsafe { io_vec.start().copy_to_nonoverlapping(dst, n) };
             offset += n;
