@@ -175,11 +175,9 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         poll.poll(&mut events, None).expect("failed to poll");
         'poll: for ev in &events {
             loop {
-                println!("will get a request");
                 if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
                     break 'poll;
                 }
-                println!("got a request");
 
                 let n = xfr.io_vec_count as usize;
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
@@ -195,9 +193,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 map_flags.insert(MapFlags::MAP_POPULATE);
                 map_flags.insert(MapFlags::MAP_NONBLOCK);
                 // vma.pg_off will not be used
-                println!("mmap n={}, len={}", n, map_len);
+                // println!("mmap n={}, pages={}", n, xfs.n_pages);
                 let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
-                println!("mmap done");
 
                 let mut io_vecs = vec![];
                 let mut cur: usize = unsafe { std::mem::transmute::<*const c_void, usize>(p) };
