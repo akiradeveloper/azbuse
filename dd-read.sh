@@ -1,0 +1,1 @@
+dd if=$1 of=/dev/null bs=4k count=1 iflag=direct 

@@ -15,7 +15,6 @@ tmp*
 abuse-ramdisk.bin
 nbd-ramdisk.bin
 
-dd-read.sh
 dd-perf-read.sh
 dd-perf-write.sh
 
