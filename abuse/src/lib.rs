@@ -176,6 +176,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
                     break 'poll;
                 }
+                println!("got a request");
 
                 let n = xfr.io_vec_count as usize;
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
