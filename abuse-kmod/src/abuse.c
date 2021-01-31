@@ -514,8 +514,8 @@ static int abctl_mmap(struct file *filp, struct vm_area_struct *vma)
 	int err =0;
 	int i;
 	for (i=0; i<n; i++) {
-		unsigned long size = ab->ab_xfer[i].n_pages << 9;
-		unsigned long pfn = ab->ab_xfer[i].ab_address >> 9;
+		unsigned long size = ab->ab_xfer[i].n_pages << PAGE_SHIFT;
+		unsigned long pfn = ab->ab_xfer[i].ab_address >> PAGE_SHIFT;
 		err |= remap_pfn_range(vma, cur, pfn, size, vma->vm_page_prot);
 		cur += size;
 	}

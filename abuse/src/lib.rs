@@ -6,6 +6,8 @@ use mio::{Poll, Interest, Token, Events};
 use mio::unix::SourceFd;
 use std::sync::Arc;
 
+const PAGE_SHIFT: usize = 12;
+
 bitflags! {
     pub struct CmdFlags: u32 {
         const OP_MASK = (1<<8) - 1;
@@ -183,7 +185,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
                 let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
 
-                let map_len = (xfr.n_pages as usize) << 9;
+                let map_len = (xfr.n_pages as usize) << PAGE_SHIFT;
                 let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                 let mut prot_flags = ProtFlags::empty();
                 prot_flags.insert(ProtFlags::PROT_READ);
@@ -206,7 +208,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                         page_offset: io_vec.offset as usize,
                         io_len: io_vec.len as usize,
                     });
-                    cur += (io_vec.n_pages as usize) << 9;
+                    cur += (io_vec.n_pages as usize) << PAGE_SHIFT;
                 }
 
                 let cmd_flags = CmdFlags::from_bits(xfr.cmd_flags).unwrap();
