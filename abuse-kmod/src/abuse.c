@@ -366,11 +366,11 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 	req = abuse_find_req(ab, xfr.ab_id);
 	if (req) {
 		list_del(&req->list);
+		spin_unlock_irq(&ab->ab_lock);
 	} else {
 		spin_unlock_irq(&ab->ab_lock);
 		return -ENOMSG;
 	}
-	spin_unlock_irq(&ab->ab_lock);
 
 	compat_spin_lock_irqsave(req->rq->q->queue_lock, flags);
 	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.ab_errno));

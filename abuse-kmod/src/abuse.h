@@ -50,21 +50,20 @@ struct abuse_vec {
 	__u32			ab_len;
 };
 
-#define CMD_OP_WRITE 0
-#define CMD_OP_READ 1
-#define CMD_OP_FLUSH 2
-#define CMD_OP_WRITE_SAME 3
-#define CMD_OP_WRITE_ZEROES 4
-#define CMD_OP_DISCARD 5
-#define CMD_OP_SECURE_ERASE 6
-#define CMD_OP_UNKNOWN 255
+#define CMD_OP_UNKNOWN 0
+#define CMD_OP_WRITE 1
+#define CMD_OP_READ 2
+#define CMD_OP_FLUSH 3
+#define CMD_OP_WRITE_SAME 4
+#define CMD_OP_WRITE_ZEROES 5
+#define CMD_OP_DISCARD 6
+#define CMD_OP_SECURE_ERASE 7
 
 #define CMD_FUA 1<<8
 #define CMD_PREFLUSH 1<<9
 #define CMD_NOUNMAP 1<<10
 #define CMD_NOWAIT 1<<11
-#define CMD_IDLE 1<<12
-#define CMD_RAHEAD 1<<13
+#define CMD_RAHEAD 1<<12
 
 struct abuse_xfr_hdr {
 	__u64			ab_id;

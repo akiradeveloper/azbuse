@@ -72,11 +72,12 @@ impl RequestHandler {
         };
         let tx = self.response_tx.clone();
         let engine = Arc::clone(&self.engine);
-        tokio::spawn(async move {
+        // tmp
+        // tokio::spawn(async move {
             let resp = engine.call(req).await;
             let resp = Response { inner: resp, request_id };
             let _ = tx.send(resp);
-        });
+        // });
         Ok(())
     }
     async fn run(mut self) {
