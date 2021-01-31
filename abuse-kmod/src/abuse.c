@@ -298,7 +298,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 	if (req) {
 		struct req_iterator iter;
 		struct bio_vec bvec;
-		int i = 0;
+		int i;
 
 		list_move_tail(&req->list, &ab->ab_reqlist);
 		spin_unlock_irq(&ab->ab_lock);
@@ -308,14 +308,20 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 		xfr.ab_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
 		xfr.ab_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
 		xfr.ab_len = blk_rq_bytes(req->rq);
+		xfr.ab_vec_count = 0;
+		xfr.n_pages = 0;
 		rq_for_each_segment(bvec, req->rq, iter) {
 			// physical address of the page
 			ab->ab_xfer[i].ab_address = (__u64)page_to_phys(bvec.bv_page);
 			ab->ab_xfer[i].ab_offset = bvec.bv_offset;
 			ab->ab_xfer[i].ab_len = bvec.bv_len;
-			++i;
+			ab->ab_xfer[i].n_pages = ((bvec.bv_offset + bvec.bv_len) + (4096-1)) / 4096;
+
+			xfr.ab_vec_count++;
+			xfr.n_pages += ab->ab_xfer[i].n_pages;
+
+			i++;
 		}
-		xfr.ab_vec_count = i;
 	} else {
 		spin_unlock_irq(&ab->ab_lock);
 		return -ENOMSG;

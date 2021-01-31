@@ -48,6 +48,7 @@ struct abuse_vec {
 	__u64			ab_address;
 	__u32			ab_offset;
 	__u32			ab_len;
+	__u32 n_pages;
 };
 
 #define CMD_OP_UNKNOWN 0
@@ -72,6 +73,7 @@ struct abuse_xfr_hdr {
 	__u32			ab_command;
 	__u32			ab_vec_count;
 	__u64			ab_transfer_address;
+	__u32 n_pages;
 };
 
 struct abuse_completion {

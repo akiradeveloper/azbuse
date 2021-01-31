@@ -49,6 +49,7 @@ pub struct AbuseXfr {
     cmd_flags: u32,
     io_vec_count: u32,
     io_vec_address: u64,
+    n_pages: u32,
 }
 
 #[repr(C)]
@@ -57,6 +58,7 @@ struct AbuseXfrIoVec {
     address: u64,
     offset: u32,
     len: u32,
+    n_pages: u32,
 }
 
 #[repr(C)]
