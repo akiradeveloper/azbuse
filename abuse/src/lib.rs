@@ -194,7 +194,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                     let page_address = io_vec.address as i64;
                     let map_len = io_vec.offset as usize + io_vec.len as usize;
-                    println!("pfn={}, len={} bytes", page_address >> 9, map_len);
+                    // println!("pfn={}, len={} bytes", page_address >> 9, map_len);
                     let mut prot_flags = ProtFlags::empty();
                     prot_flags.insert(ProtFlags::PROT_READ);
                     prot_flags.insert(ProtFlags::PROT_WRITE);
