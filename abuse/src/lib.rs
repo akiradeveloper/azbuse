@@ -103,13 +103,6 @@ impl IOVec {
         self.io_len
     }
 }
-impl Drop for IOVec {
-    fn drop(&mut self) {
-        let p = unsafe { std::mem::transmute::<usize, *mut c_void>(self.page_address) };
-        let map_len = self.page_offset + self.io_len;
-        unsafe { munmap(p, map_len) }.expect("failed to munmap");
-    }
-}
 
 pub struct Request {
     pub cmd_flags: CmdFlags,
@@ -188,32 +181,30 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
                 let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
 
+                let map_len = (xfr.n_pages as usize) << 9;
+                let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
+                let mut prot_flags = ProtFlags::empty();
+                prot_flags.insert(ProtFlags::PROT_READ);
+                prot_flags.insert(ProtFlags::PROT_WRITE);
+                let mut map_flags = MapFlags::empty();
+                map_flags.insert(MapFlags::MAP_SHARED);
+                map_flags.insert(MapFlags::MAP_POPULATE);
+                map_flags.insert(MapFlags::MAP_NONBLOCK);
+                // vma.pg_off will not be used
+                let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
+
                 let mut io_vecs = vec![];
+                let mut cur: usize = unsafe { std::mem::transmute::<*const c_void, usize>(p) };
                 for i in 0..n {
                     let io_vec = &xfr_io_vec[i];
-                    assert!(io_vec.address % 4096 == 0);
-
-                    let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
-                    let page_address = io_vec.address as i64;
-                    let map_len = io_vec.offset as usize + io_vec.len as usize;
-                    println!("pfn={}, len={} bytes", page_address >> 9, map_len);
-                    let mut prot_flags = ProtFlags::empty();
-                    prot_flags.insert(ProtFlags::PROT_READ);
-                    prot_flags.insert(ProtFlags::PROT_WRITE);
-                    let mut map_flags = MapFlags::empty();
-                    map_flags.insert(MapFlags::MAP_SHARED);
-                    map_flags.insert(MapFlags::MAP_POPULATE);
-                    map_flags.insert(MapFlags::MAP_NONBLOCK);
-                    // Last argument page_offset should be a multiple of page size
-                    // This passes to xxx_mmap as vma.pg_off after 9 right shift.
-                    let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
-
                     io_vecs.push(IOVec {
-                        page_address: unsafe { std::mem::transmute::<*const c_void, usize>(p) },
+                        page_address: cur,
                         page_offset: io_vec.offset as usize,
                         io_len: io_vec.len as usize,
                     });
+                    cur += (io_vec.n_pages as usize) << 9;
                 }
+
                 let cmd_flags = CmdFlags::from_bits(xfr.cmd_flags).unwrap();
                 let req = Request {
                     cmd_flags,
@@ -233,6 +224,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     };
                     unsafe { abuse_put_req(fd, &cmplt) }.expect("failed to put req");
                 // });
+
+                unsafe { munmap(p, map_len) }.expect("failed to munmap");
             } 
         }
     }
