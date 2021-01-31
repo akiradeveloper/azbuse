@@ -298,7 +298,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 	if (req) {
 		struct req_iterator iter;
 		struct bio_vec bvec;
-		int i;
+		int i = 0;
 
 		list_move_tail(&req->list, &ab->ab_reqlist);
 		spin_unlock_irq(&ab->ab_lock);
