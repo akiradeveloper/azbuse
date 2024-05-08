@@ -1,5 +1,6 @@
 [workspace]
 members = [
-    "userland-io",
-    "ramdisk"
+    "abuse",
+    "abusectl",
+    "abuse-ramdisk",
 ]
