@@ -112,9 +112,7 @@ static int abuse_reset(struct abuse_device *ab)
 	ab->ab_max_queue = 0;
 	set_capacity(ab->ab_disk, 0);
 	if (ab->ab_device) {
-		// https://lkml.org/lkml/2020/8/21/268
-		// should use bd_set_nr_sectors
-		bd_set_size(ab->ab_device, 0);
+		bd_set_nr_sectors(ab->ab_device, 0);
 		// Invalidate clean unused buffers and pagecache.
 		invalidate_bdev(ab->ab_device);
 		if (max_part > 0)
@@ -186,7 +184,7 @@ static int abuse_set_status_int(struct abuse_device *ab, struct block_device *bd
 	set_capacity(ab->ab_disk, size);
 	set_device_ro(bdev, (ab->ab_flags & ABUSE_FLAGS_READ_ONLY) != 0);
 	set_capacity(ab->ab_disk, size);
-	bd_set_size(bdev, size << SECTOR_SHIFT);
+	bd_set_nr_sectors(bdev, size);
 	set_blocksize(bdev, ab->ab_blocksize);
 	if (max_part > 0)
 		reread_partition(bdev);
