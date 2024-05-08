@@ -13,6 +13,9 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
+      - name: Check Kernel Config (Rust)
+        run: cat /boot/config-$(uname -r) | grep _RUST
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -27,7 +30,35 @@ jobs:
         run: sudo make install
       
       - name: Load module
-        run: sudo modprobe abuse
+        run: |
+          sudo modprobe abuse
+          ls /dev
 
       - name: Install abusectl
-        run: sudo cargo install -p abusectl
+        run: sudo cargo install --path abusectl --root /usr/local
+
+      - name: Add /dev/abuse1
+        run: |
+          sudo abusectl add 1 
+          lsblk
+          sudo abusectl remove 1
+          lsblk
+          sudo abusectl add 1
+          lsblk
+
+      - name: Connect /dev/abuse1 and ramdisk
+        run: |
+          sudo cargo build -p abuse-ramdisk --release
+          sudo target/release/abuse-ramdisk 1 &> abuse.log &
+          sleep 1
+          lsblk
+
+      - name: Logical test (badblocks)
+        run: sudo badblocks -wsv /dev/abuse1
+
+      - name: Cat make.log
+        run: |
+          sudo dmesg
+          sudo cat abuse.log
+          sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
+        if: ${{ failure() }}
