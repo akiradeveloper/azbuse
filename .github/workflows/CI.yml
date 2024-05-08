@@ -31,3 +31,7 @@ jobs:
 
       - name: Install abusectl
         run: sudo cargo install -p abusectl
+
+      - name: Cat make.log
+        run: sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
+        if: ${{ failure() }}
