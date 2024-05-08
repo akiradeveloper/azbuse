@@ -1,8 +1,6 @@
 [workspace]
 members = [
-    "nbd",
-    "nbd-ramdisk",
     "abuse",
-    "abuse-ramdisk",
     "abusectl",
+    "abuse-ramdisk",
 ]

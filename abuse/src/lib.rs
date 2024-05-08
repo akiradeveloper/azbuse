@@ -195,13 +195,16 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     let page_address = io_vec.address as i64;
                     let map_len = io_vec.offset as usize + io_vec.len as usize;
                     println!("pfn={}, len={} bytes", page_address >> 9, map_len);
+
                     let mut prot_flags = ProtFlags::empty();
                     prot_flags.insert(ProtFlags::PROT_READ);
                     prot_flags.insert(ProtFlags::PROT_WRITE);
+                    
                     let mut map_flags = MapFlags::empty();
                     map_flags.insert(MapFlags::MAP_SHARED);
                     map_flags.insert(MapFlags::MAP_POPULATE);
                     map_flags.insert(MapFlags::MAP_NONBLOCK);
+
                     // Last argument page_offset should be a multiple of page size
                     // This passes to xxx_mmap as vma.pg_off after 9 right shift.
                     let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
