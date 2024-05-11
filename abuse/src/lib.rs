@@ -174,7 +174,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         .. AbuseXfr::default()
     };
     loop {
-        // timeout = None
+        // When there are some requests in the in-kernel queue, this returns events including Token(0).
+        // Then the internal loop consumes all requests in the queue.
         poll.poll(&mut events, None).expect("failed to poll");
         'poll: for ev in &events {
             loop {
