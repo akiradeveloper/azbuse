@@ -30,35 +30,7 @@
 
 #include <asm/uaccess.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)
-#define compat_get_disk(x) get_disk_and_module((x))
-#else
-#define compat_get_disk(x) get_disk((x))
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
-#define compat_queue_flag_set(x,y) blk_queue_flag_set((x),(y))
-#else
-#define compat_queue_flag_set(x,y) queue_flag_set_unlocked((x),(y))
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
-#define compat_complete_request(x) blk_mq_complete_request((x))
-#else
-#define compat_complete_request(x) blk_complete_request((x))
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
-#define compat_spin_lock_irqsave(x,y) spin_lock_irqsave(&(x),(y))
-#define compat_spin_unlock_irqrestore(x,y) spin_unlock_irqrestore(&(x),(y))
-#else
-#define compat_spin_lock_irqsave(x,y) spin_lock_irqsave((x),(y))
-#define compat_spin_unlock_irqrestore(x,y) spin_unlock_irqrestore((x),(y))
-#endif
-
-static DEFINE_MUTEX(abuse_devices_mutex);
-// not used
-// static DEFINE_MUTEX(abctl_mutex);
+static DEFINE_MUTEX(abuse_ctl_mutex);
 static DEFINE_IDR(abuse_index_idr);
 static struct class *abuse_class;
 static int max_part;
@@ -75,7 +47,7 @@ static void abuse_flush_pending_requests(struct abuse_device *ab)
 	spin_lock_irq(&ab->ab_lock);
 	list_for_each_entry_safe(req, tmp, &ab->ab_reqlist, list) {
 		req->rq->rq_flags |= RQF_FAILED;
-		compat_complete_request(req->rq);
+		blk_mq_complete_request(req->rq);
 		list_del(&req->list);
 	}
 	spin_unlock_irq(&ab->ab_lock);
@@ -174,7 +146,7 @@ static int abuse_set_status_int(struct abuse_device *ab, struct block_device *bd
 
 	ab->ab_device = bdev;
 	ab->ab_queue->queuedata = ab;
-	compat_queue_flag_set(QUEUE_FLAG_NONROT, ab->ab_queue);
+	blk_queue_flag_set(QUEUE_FLAG_NONROT, ab->ab_queue);
 
 	ab->ab_size = info->ab_size;
 	ab->ab_flags = (info->ab_flags & ABUSE_FLAGS_READ_ONLY);
@@ -370,9 +342,9 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 		return -ENOMSG;
 	}
 
-	compat_spin_lock_irqsave(req->rq->q->queue_lock, flags);
+	spin_lock_irqsave(req->rq->q->queue_lock, flags);
 	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.ab_errno));
-	compat_spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
+	spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
 
 	return 0;
 }
@@ -443,7 +415,7 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		err = abuse_put_req(ab, (struct abuse_completion __user *) arg);
 		break;
 	case ABUSE_CTL_ADD:
-		mutex_lock(&abuse_devices_mutex);
+		mutex_lock(&abuse_ctl_mutex);
 		new = abuse_alloc(arg);
 		if (new) {
 			add_disk(new->ab_disk);
@@ -452,10 +424,10 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			// FIXME: better error handling
 			err = -EEXIST;
 		}
-		mutex_unlock(&abuse_devices_mutex);
+		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_CTL_REMOVE:
-		mutex_lock(&abuse_devices_mutex);
+		mutex_lock(&abuse_ctl_mutex);
 		remove = idr_find(&abuse_index_idr, arg);
 		if (remove == NULL) {
 			err = -ENOENT;
@@ -463,7 +435,7 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			err = remove->ab_number;
 			abuse_del_one(remove);
 		}
-		mutex_unlock(&abuse_devices_mutex);
+		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_ACQUIRE:
 		err = abuse_acquire(filp, arg);
@@ -686,10 +658,10 @@ static struct kobject *abuse_probe(dev_t dev, int *part, void *data)
 	struct abuse_device *ab;
 	struct kobject *kobj;
 
-	mutex_lock(&abuse_devices_mutex);
+	mutex_lock(&abuse_ctl_mutex);
 	ab = abuse_add_one(dev & MINORMASK);
-	kobj = ab ? compat_get_disk(ab->ab_disk) : ERR_PTR(-ENOMEM);
-	mutex_unlock(&abuse_devices_mutex);
+	kobj = ab ? get_disk_and_module(ab->ab_disk) : ERR_PTR(-ENOMEM);
+	mutex_unlock(&abuse_ctl_mutex);
 
 	*part = 0;
 	return kobj;
