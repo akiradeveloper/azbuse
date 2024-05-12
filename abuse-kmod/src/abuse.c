@@ -505,17 +505,17 @@ static int abctl_open(struct inode *nodp, struct file *filp)
 }
 
 static struct block_device_operations ab_fops = {
-	.owner =	THIS_MODULE,
+	.owner = THIS_MODULE,
 	.open =	ab_open,
-	.release =	ab_release,
+	.release = ab_release,
 };
 
 static struct file_operations abctl_fops = {
-	.owner =		THIS_MODULE,
-	.open =		abctl_open,
-	.release =		abctl_release,
-	.unlocked_ioctl =	abctl_ioctl,
-	.poll =		abctl_poll,
+	.owner = THIS_MODULE,
+	.open =	abctl_open,
+	.release = abctl_release,
+	.unlocked_ioctl = abctl_ioctl,
+	.poll =	abctl_poll,
 	.mmap = abctl_mmap,
 };
 
@@ -611,15 +611,15 @@ static struct abuse_device *abuse_alloc(int i)
 	disk = ab->ab_disk = alloc_disk(num_minors);
 	if (!disk)
 		goto out_free_queue;
-	disk->major		= ABUSE_MAJOR;
-	disk->first_minor	= i << dev_shift;
-	disk->fops		= &ab_fops;
-	disk->private_data	= ab;
-	disk->queue		= ab->ab_queue;
+	disk->major	= ABUSE_MAJOR;
+	disk->first_minor = i << dev_shift;
+	disk->fops = &ab_fops;
+	disk->private_data = ab;
+	disk->queue	= ab->ab_queue;
 	sprintf(disk->disk_name, "abuse%d", i);
 
 	mutex_init(&ab->ab_ctl_mutex);
-	ab->ab_number		= i;
+	ab->ab_number = i;
 	init_waitqueue_head(&ab->ab_event);
 	spin_lock_init(&ab->ab_lock);
 	INIT_LIST_HEAD(&ab->ab_reqlist);

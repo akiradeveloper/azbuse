@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use bitflags::bitflags;
-use nix::sys::mman::{mmap, munmap, ProtFlags, MapFlags};
 use core::ffi::c_void;
-use mio::{Poll, Interest, Token, Events};
 use mio::unix::SourceFd;
+use mio::{Events, Interest, Poll, Token};
+use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
 use std::sync::Arc;
 
 bitflags! {
@@ -128,7 +128,7 @@ pub trait StorageEngine: Send + Sync + 'static {
 }
 
 // This could be BIO_MAX_VECS = 256 (in 5.10)
-const MAX_QUEUE: usize = 1<<16;
+const MAX_QUEUE: usize = 1 << 16;
 
 pub struct Config {
     pub dev_number: u16,
@@ -142,9 +142,10 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     let engine = Arc::new(engine);
     let fd = open("/dev/abctl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/abctl");
     let devpath = format!("/dev/abuse{}", config.dev_number);
-    let devfd = open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device");
+    let devfd =
+        open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device");
 
-    // This attaches struct ab_device to ctlfd->private_data 
+    // This attaches struct ab_device to ctlfd->private_data
     unsafe { abuse_acquire(fd, devfd) }.expect("couldn't acquire abuse device");
     let mut info = AbuseInfo::default();
     unsafe { abuse_get_status(fd, &mut info) }.expect("couldn't get info");
@@ -158,20 +159,17 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
     let mut poll = Poll::new().unwrap();
     let mut source = SourceFd(&fd);
-    poll.registry().register(
-        &mut source,
-        Token(0),
-        Interest::READABLE,
-    ).expect("failed to set up poll");
+    poll.registry()
+        .register(&mut source, Token(0), Interest::READABLE)
+        .expect("failed to set up poll");
     let mut events = Events::with_capacity(1);
 
     let iovec = [AbuseXfrIoVec::default(); MAX_QUEUE];
-    let io_vec_address: u64 = unsafe {
-            std::mem::transmute::<* const AbuseXfrIoVec, u64>(iovec.as_ptr())
-    };
+    let io_vec_address: u64 =
+        unsafe { std::mem::transmute::<*const AbuseXfrIoVec, u64>(iovec.as_ptr()) };
     let mut xfr = AbuseXfr {
         io_vec_address,
-        .. AbuseXfr::default()
+        ..AbuseXfr::default()
     };
     loop {
         // When there are some requests in the in-kernel queue, this returns events including Token(0).
@@ -184,7 +182,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 }
 
                 let n = xfr.io_vec_count as usize;
-                let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
+                let xfr_io_vec =
+                    unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
                 let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
 
                 let mut io_vecs = vec![];
@@ -200,7 +199,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     let mut prot_flags = ProtFlags::empty();
                     prot_flags.insert(ProtFlags::PROT_READ);
                     prot_flags.insert(ProtFlags::PROT_WRITE);
-                    
+
                     let mut map_flags = MapFlags::empty();
                     map_flags.insert(MapFlags::MAP_SHARED);
                     map_flags.insert(MapFlags::MAP_POPULATE);
@@ -208,7 +207,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
                     // Last argument page_offset should be a multiple of page size
                     // This passes to xxx_mmap as vma.pg_off after 9 right shift.
-                    let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
+                    let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }
+                        .expect("failed to mmap");
 
                     io_vecs.push(IOVec {
                         page_address: unsafe { std::mem::transmute::<*const c_void, usize>(p) },
@@ -227,15 +227,15 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 let engine = Arc::clone(&engine);
                 // tmp (BUG)
                 // tokio::spawn(async move {
-                    let req_id = req.request_id;
-                    let res = engine.call(req).await;
-                    let cmplt = AbuseCompletion {
-                        id: req_id,
-                        result: res.errorno,
-                    };
-                    unsafe { abuse_put_req(fd, &cmplt) }.expect("failed to put req");
+                let req_id = req.request_id;
+                let res = engine.call(req).await;
+                let cmplt = AbuseCompletion {
+                    id: req_id,
+                    result: res.errorno,
+                };
+                unsafe { abuse_put_req(fd, &cmplt) }.expect("failed to put req");
                 // });
-            } 
+            }
         }
     }
 }

@@ -1,13 +1,13 @@
+use abuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
+use async_trait::async_trait;
 use clap::Clap;
 use core::ffi::c_void;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
-use abuse::{StorageEngine, Request, Response, CmdFlags, IOVec};
 
 #[derive(Clap)]
 struct Opts {
-    dev_number: u16
+    dev_number: u16,
 }
 #[tokio::main]
 async fn main() {
@@ -40,7 +40,7 @@ impl StorageEngine for Engine {
                     request_id: id,
                     errorno: 0,
                 }
-            },
+            }
             CmdFlags::OP_READ => {
                 let m = self.mem.read().await;
                 m.read(req.start as usize, &req.io_vecs);
@@ -48,12 +48,10 @@ impl StorageEngine for Engine {
                     request_id: id,
                     errorno: 0,
                 }
-            },
-            _ => {
-                Response {
-                    request_id: id,
-                    errorno: -libc::EOPNOTSUPP,
-                }
+            }
+            _ => Response {
+                request_id: id,
+                errorno: -libc::EOPNOTSUPP,
             },
         }
     }
@@ -63,15 +61,13 @@ struct MemBuffer {
 }
 impl MemBuffer {
     fn new(n: usize) -> Self {
-        Self {
-            buf: vec![0;n],
-        }
+        Self { buf: vec![0; n] }
     }
     fn write(&mut self, offset: usize, io_vecs: &[IOVec]) {
         let mut offset = offset;
         for io_vec in io_vecs {
             let n = io_vec.len();
-            let dst = self.buf[offset ..].as_ptr();
+            let dst = self.buf[offset..].as_ptr();
             let dst = unsafe { std::mem::transmute::<*const u8, *mut c_void>(dst) };
             unsafe { io_vec.start().copy_to_nonoverlapping(dst, n) };
             offset += n;
@@ -81,7 +77,7 @@ impl MemBuffer {
         let mut offset = offset;
         for io_vec in io_vecs {
             let n = io_vec.len();
-            let src = self.buf[offset ..].as_ptr();
+            let src = self.buf[offset..].as_ptr();
             let src = unsafe { std::mem::transmute::<*const u8, *mut c_void>(src) };
             unsafe { io_vec.start().copy_from_nonoverlapping(src, n) };
             offset += n;

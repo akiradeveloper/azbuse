@@ -18,15 +18,11 @@ fn main() {
     let fd = open("/dev/abctl", OFlag::empty(), Mode::empty()).expect("couldn't open /dev/abctl");
     let opts = Opts::parse();
     match opts {
-        Opts::Add { idx } => {
-            unsafe {
-                abctl_add_device(fd, idx as i32).unwrap();
-            }
+        Opts::Add { idx } => unsafe {
+            abctl_add_device(fd, idx as i32).unwrap();
         },
-        Opts::Remove { idx } => {
-            unsafe {
-                abctl_remove_device(fd, idx as i32).unwrap();
-            }
-        }
+        Opts::Remove { idx } => unsafe {
+            abctl_remove_device(fd, idx as i32).unwrap();
+        },
     }
 }
