@@ -33,9 +33,6 @@
 static DEFINE_MUTEX(abuse_ctl_mutex);
 static DEFINE_IDR(abuse_index_idr);
 static struct class *abuse_class;
-static int max_part;
-static int num_minors;
-static int dev_shift;
 
 static struct abuse_device *abuse_alloc(int i);
 static void abuse_del_one(struct abuse_device *ab);
@@ -51,24 +48,6 @@ static void abuse_flush_pending_requests(struct abuse_device *ab)
 		list_del(&req->list);
 	}
 	spin_unlock_irq(&ab->ab_lock);
-}
-static inline int is_abuse_device(struct file *file)
-{
-	struct inode *i = file->f_mapping->host;
-	return i && S_ISBLK(i->i_mode) && MAJOR(i->i_rdev) == ABUSE_MAJOR;
-}
-
-static int reread_partition(struct block_device *bdev) {
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0)
-	int res;
-	mm_segment_t old_fs = get_fs();
-	set_fs(KERNEL_DS);
-	res = blkdev_ioctl(bdev, 0, BLKRRPART, 0);
-	set_fs(old_fs);
-	return res;
-	#else
-	return ioctl_by_bdev(bdev, BLKRRPART, 0);
-	#endif
 }
 
 static int abuse_reset(struct abuse_device *ab)
@@ -87,13 +66,40 @@ static int abuse_reset(struct abuse_device *ab)
 		bd_set_nr_sectors(ab->ab_device, 0);
 		// Invalidate clean unused buffers and pagecache.
 		invalidate_bdev(ab->ab_device);
-		if (max_part > 0)
-			reread_partition(ab->ab_device);
 		blkdev_put(ab->ab_device, FMODE_READ);
 		ab->ab_device = NULL;
 		module_put(THIS_MODULE);
 	}
 	return 0;
+}
+
+static int __abuse_get_status(struct abuse_device *ab, struct abuse_info *info)
+{
+	memset(info, 0, sizeof(*info));
+	info->ab_size = ab->ab_size;
+	info->ab_number = ab->ab_number;
+	info->ab_flags = ab->ab_flags;
+	info->ab_blocksize = ab->ab_blocksize;
+	info->ab_max_queue = ab->ab_max_queue;
+	info->ab_queue_size = ab->ab_queue_size;
+	info->ab_errors = ab->ab_errors;
+	info->ab_max_vecs = BIO_MAX_PAGES;
+	return 0;
+}
+
+static int abuse_get_status(struct abuse_device *ab, struct block_device *bdev, struct abuse_info __user *arg)
+{
+	struct abuse_info info;
+	int err = 0;
+
+	if (!arg)
+		err = -EINVAL;
+	if (!err)
+		err = __abuse_get_status(ab, &info);
+	if (!err && copy_to_user(arg, &info, sizeof(info)))
+		err = -EFAULT;
+
+	return err;
 }
 
 static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info *info)
@@ -139,50 +145,16 @@ static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev
 	set_capacity(ab->ab_disk, size);
 	bd_set_nr_sectors(bdev, size);
 	set_blocksize(bdev, ab->ab_blocksize);
-	if (max_part > 0)
-		reread_partition(bdev);
 
 	return 0;
 }
 
-static int
-abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info __user *arg)
+static int abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info __user *arg)
 {
 	struct abuse_info info;
 	if (copy_from_user(&info, arg, sizeof (struct abuse_info)))
 		return -EFAULT;
 	return __abuse_set_status(ab, bdev, &info);
-}
-
-static int
-__abuse_get_status(struct abuse_device *ab, struct abuse_info *info)
-{
-	memset(info, 0, sizeof(*info));
-	info->ab_size = ab->ab_size;
-	info->ab_number = ab->ab_number;
-	info->ab_flags = ab->ab_flags;
-	info->ab_blocksize = ab->ab_blocksize;
-	info->ab_max_queue = ab->ab_max_queue;
-	info->ab_queue_size = ab->ab_queue_size;
-	info->ab_errors = ab->ab_errors;
-	info->ab_max_vecs = BIO_MAX_PAGES;
-	return 0;
-}
-
-static int
-abuse_get_status(struct abuse_device *ab, struct block_device *bdev, struct abuse_info __user *arg)
-{
-	struct abuse_info info;
-	int err = 0;
-
-	if (!arg)
-		err = -EINVAL;
-	if (!err)
-		err = __abuse_get_status(ab, &info);
-	if (!err && copy_to_user(arg, &info, sizeof(info)))
-		err = -EFAULT;
-
-	return err;
 }
 
 static unsigned xfr_command_from_cmd_flags(unsigned cmd_flags) {
@@ -291,13 +263,7 @@ static struct ab_req *abuse_find_req(struct abuse_device *ab, __u64 id)
 	return NULL;
 }
 
-static inline void abuse_add_req(struct abuse_device *ab, struct ab_req *req)
-{
-	spin_lock_irq(&ab->ab_lock);
-	list_add_tail(&req->list, &ab->ab_reqlist);
-	spin_unlock_irq(&ab->ab_lock);
-}
-
+// Complete a request 
 static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user *arg)
 {
 	struct abuse_completion xfr;
@@ -456,10 +422,15 @@ static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
 	return remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 }
 
+static int abctl_open(struct inode *nodp, struct file *filp)
+{
+	filp->private_data = NULL;
+	return 0;
+}
+
 static int abctl_release(struct inode *inode, struct file *filp)
 {
 	struct abuse_device *ab = filp->private_data;
-
 	if (!ab) {
 		return -ENODEV;
 	}
@@ -479,42 +450,11 @@ static void ab_release(struct gendisk *disk, fmode_t mode)
 	return;
 }
 
-static int abctl_open(struct inode *nodp, struct file *filp)
-{
-	filp->private_data = NULL;
-	return 0;
-}
-
 static struct block_device_operations ab_fops = {
 	.owner = THIS_MODULE,
 	.open =	ab_open,
 	.release = ab_release,
 };
-
-static struct file_operations abctl_fops = {
-	.owner = THIS_MODULE,
-	.open =	abctl_open,
-	.release = abctl_release,
-	.unlocked_ioctl = abctl_ioctl,
-	.poll =	abctl_poll,
-	.mmap = abctl_mmap,
-};
-
-static struct miscdevice abuse_misc = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "abctl",
-	.fops = &abctl_fops,
-};
-
-MODULE_ALIAS("devname:abctl");
-
-static int max_abuse;
-module_param(max_abuse, int, 0);
-MODULE_PARM_DESC(max_abuse, "Maximum number of abuse devices");
-module_param(max_part, int, 0);
-MODULE_PARM_DESC(max_part, "Maximum number of partitions per abuse device");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS_BLOCKDEV_MAJOR(ABUSE_MAJOR);
 
 static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
 			      unsigned int hctx_idx, unsigned int numa_node)
@@ -542,8 +482,8 @@ static blk_status_t abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_
 }
 
 static struct blk_mq_ops abuse_mq_ops = {
-	.queue_rq       = abuse_queue_rq,
 	.init_request	= abuse_init_request,
+	.queue_rq       = abuse_queue_rq,
 };
 
 // FIXME: error propagation
@@ -573,11 +513,7 @@ static struct abuse_device *abuse_alloc(int i)
 	ab->tag_set.queue_depth = 128;
 	ab->tag_set.numa_node = NUMA_NO_NODE;
 	ab->tag_set.cmd_size = sizeof(struct ab_req);
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 	ab->tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
-	#else
-	ab->tag_set.flags = BLK_MQ_F_SHOULD_MERGE | BLK_MQ_F_SG_MERGE;
-	#endif
 	ab->tag_set.driver_data = ab;
 
 	err = blk_mq_alloc_tag_set(&ab->tag_set);
@@ -634,20 +570,6 @@ static struct abuse_device *abuse_add_one(int i)
 	return ab;
 }
 
-static struct kobject *abuse_probe(dev_t dev, int *part, void *data)
-{
-	struct abuse_device *ab;
-	struct kobject *kobj;
-
-	mutex_lock(&abuse_ctl_mutex);
-	ab = abuse_add_one(dev & MINORMASK);
-	kobj = ab ? get_disk_and_module(ab->ab_disk) : ERR_PTR(-ENOMEM);
-	mutex_unlock(&abuse_ctl_mutex);
-
-	*part = 0;
-	return kobj;
-}
-
 static void abuse_free(struct abuse_device *ab)
 {
 	blk_cleanup_queue(ab->ab_queue);
@@ -663,46 +585,26 @@ static void abuse_del_one(struct abuse_device *ab)
 	abuse_free(ab);
 }
 
-static int abuse_exit_cb(int id, void *ptr, void *data)
-{
-	struct abuse_device *ab = ptr;
-	abuse_del_one(ab);
-	return 0;
-}
+static struct file_operations abctl_fops = {
+	.owner = THIS_MODULE,
+	.open =	abctl_open,
+	.release = abctl_release,
+	.unlocked_ioctl = abctl_ioctl,
+	.poll =	abctl_poll,
+	.mmap = abctl_mmap,
+};
+
+static struct miscdevice abuse_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "abctl",
+	.fops = &abctl_fops,
+};
 
 static int __init abuse_init(void)
 {
 	int i, nr, err;
 	unsigned long range;
 	struct abuse_device *ab;
-
-	/*
-	 * abuse module has a feature to instantiate underlying device
-	 * structure on-demand, provided that there is an access dev node.
-	 *
-	 * (1) if max_abuse is specified, create that many upfront, and this
-	 *     also becomes a hard limit.  Cross it and divorce is likely.
-	 * (2) if max_abuse is not specified, create 8 abuse device on module
-	 *     load, user can further extend abuse device by create dev node
-	 *     themselves and have kernel automatically instantiate actual
-	 *     device on-demand.
-	 */
-
-	dev_shift = 0;
-	if (max_part > 0)
-		dev_shift = fls(max_part);
-	num_minors = 1 << dev_shift;
-
-	if (max_abuse > 1UL << (MINORBITS - dev_shift))
-		return -EINVAL;
-
-	if (max_abuse) {
-		nr = max_abuse;
-		range = max_abuse;
-	} else {
-		nr = 8;
-		range = 1UL << (MINORBITS - dev_shift);
-	}
 
 	err = misc_register(&abuse_misc);
 	if (err < 0)
@@ -714,58 +616,38 @@ static int __init abuse_init(void)
 		goto unregister_misc;
 	}
 
-	err = register_chrdev_region(MKDEV(ABUSECTL_MAJOR, 0), range, "abuse");
-	if (err) {
-		printk("abuse: register_chrdev_region failed!\n");
-		goto unregister_blk;
-	}
-
 	abuse_class = class_create(THIS_MODULE, "abuse");
 	if (IS_ERR(abuse_class)) {
 		err = PTR_ERR(abuse_class);
-		goto unregister_chr;
+		goto unregister_blk;
 	}
-
-	err = -ENOMEM;
-	for (i = 0; i < nr; i++) {
-		ab = abuse_alloc(i);
-		if (!ab) {
-			printk(KERN_INFO "abuse: out of memory\n");
-			goto free_devices;
-		}
-		add_disk(ab->ab_disk);
-	}
-
-	blk_register_region(MKDEV(ABUSE_MAJOR, 0), range, THIS_MODULE, abuse_probe, NULL, NULL);
 
 	printk(KERN_INFO "abuse: module loaded\n");
 	return 0;
 
-free_devices:
-	idr_for_each(&abuse_index_idr, abuse_exit_cb, NULL);
-unregister_chr:
-	unregister_chrdev_region(MKDEV(ABUSECTL_MAJOR, 0), range);
 unregister_blk:
 	unregister_blkdev(ABUSE_MAJOR, "abuse");
 unregister_misc:
 	misc_deregister(&abuse_misc);
+
 	return err;
+}
+
+static int abuse_exit_cb(int id, void *ptr, void *data)
+{
+	struct abuse_device *ab = ptr;
+	abuse_del_one(ab);
+	return 0;
 }
 
 static void __exit abuse_exit(void)
 {
 	unsigned long range;
 
-	range = max_abuse ? max_abuse :  1UL << (MINORBITS - dev_shift);
-
 	idr_for_each(&abuse_index_idr, abuse_exit_cb, NULL);
 	idr_destroy(&abuse_index_idr);
 
-	device_destroy(abuse_class, MKDEV(ABUSECTL_MAJOR, 0));
 	class_destroy(abuse_class);
-
-	blk_unregister_region(MKDEV(ABUSE_MAJOR, 0), range);
-	unregister_chrdev_region(MKDEV(ABUSECTL_MAJOR, 0), range);
 	unregister_blkdev(ABUSE_MAJOR, "abuse");
 	misc_deregister(&abuse_misc);
 }
@@ -773,12 +655,6 @@ static void __exit abuse_exit(void)
 module_init(abuse_init);
 module_exit(abuse_exit);
 
-#ifndef MODULE
-static int __init max_abuse_setup(char *str)
-{
-	max_abuse = simple_strtol(str, NULL, 0);
-	return 1;
-}
-
-__setup("max_abuse=", max_abuse_setup);
-#endif
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("devname:abctl");
+MODULE_ALIAS_BLOCKDEV_MAJOR(ABUSE_MAJOR);
