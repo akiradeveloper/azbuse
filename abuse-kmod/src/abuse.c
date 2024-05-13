@@ -319,18 +319,6 @@ static int abuse_acquire(struct file *ctl, unsigned long arg)
 	return 0;
 }
 
-static int abuse_release(struct file *filp)
-{
-	struct abuse_device *ab = filp->private_data;
-
-	if (ab == NULL)
-		return -ENODEV;
-
-	filp->private_data = NULL;
-
-	return 0;
-}
-
 static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct abuse_device *ab = filp->private_data;
@@ -387,9 +375,6 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ABUSE_ACQUIRE:
 		err = abuse_acquire(filp, arg);
 		break;
-	case ABUSE_RELEASE:
-		err = abuse_release(filp);
-		break;
 	default:
 		err = -EINVAL;
 	}
@@ -410,7 +395,6 @@ static unsigned int abctl_poll(struct file *filp, poll_table *wait)
 		return -ENODEV;
 
 	poll_wait(filp, &ab->ab_event, wait);
-
 	mask = (list_empty(&ab->ab_reqlist)) ? 0 : POLLIN;
 	return mask;
 }
@@ -525,11 +509,11 @@ static struct abuse_device *abuse_alloc(int i)
 		goto out_cleanup_tags;
 	ab->ab_queue->queuedata = ab;
 
-	disk = ab->ab_disk = alloc_disk(num_minors);
+	disk = ab->ab_disk = blk_mq_alloc_disk(&ab->tag_set, ab);
 	if (!disk)
 		goto out_free_queue;
 	disk->major	= ABUSE_MAJOR;
-	disk->first_minor = i << dev_shift;
+	disk->first_minor = i;
 	disk->fops = &ab_fops;
 	disk->private_data = ab;
 	disk->queue	= ab->ab_queue;

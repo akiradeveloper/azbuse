@@ -78,10 +78,8 @@ const ABUSE_CTL_REMOVE: u16 = 0x4187;
 const ABUSE_CTL_GET_FREE: u16 = 0x4188;
 
 const ABUSE_ACQUIRE: u16 = 0x4189;
-const ABUSE_RELEASE: u16 = 0x418A;
 
 nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
-nix::ioctl_none_bad!(abuse_release, ABUSE_RELEASE);
 nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
 nix::ioctl_write_int_bad!(abuse_acquire, ABUSE_ACQUIRE);
 nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
