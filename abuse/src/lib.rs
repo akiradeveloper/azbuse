@@ -74,14 +74,14 @@ const ABUSE_PUT_REQ: u16 = 0x4124;
 
 const ABUSE_CTL_ADD: u16 = 0x4186;
 const ABUSE_CTL_REMOVE: u16 = 0x4187;
-const ABUSE_ACQUIRE: u16 = 0x4188;
+const ABUSE_CONNECT: u16 = 0x4188;
 
 nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
 nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
 nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
 nix::ioctl_read_bad!(abuse_get_req, ABUSE_GET_REQ, AbuseXfr);
 nix::ioctl_write_ptr_bad!(abuse_put_req, ABUSE_PUT_REQ, AbuseCompletion);
-nix::ioctl_write_int_bad!(abuse_acquire, ABUSE_ACQUIRE);
+nix::ioctl_write_int_bad!(abuse_connect, ABUSE_CONNECT);
 
 pub struct IOVec {
     page_address: usize,
@@ -142,7 +142,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     };
 
     // This attaches struct ab_device to ctlfd->private_data
-    unsafe { abuse_acquire(fd, devfd) }.expect("couldn't acquire abuse device");
+    unsafe { abuse_connect(fd, devfd) }.expect("couldn't acquire abuse device");
     let mut info = AbuseInfo::default();
     unsafe { abuse_get_status(fd, &mut info) }.expect("couldn't get info");
     dbg!(&info);

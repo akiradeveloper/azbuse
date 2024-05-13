@@ -38,12 +38,12 @@ struct abuse_info {
 
 #define ABUSE_CTL_ADD 0x4186
 #define ABUSE_CTL_REMOVE 0x4187
-#define ABUSE_ACQUIRE		0x4188
+#define ABUSE_CONNECT 0x4188
 
 struct abuse_vec {
-	__u64			ab_address;
-	__u32			ab_offset;
-	__u32			ab_len;
+	__u64 ab_address;
+	__u32 ab_offset;
+	__u32 ab_len;
 };
 
 #define CMD_OP_UNKNOWN 0
@@ -62,12 +62,12 @@ struct abuse_vec {
 #define CMD_RAHEAD 1<<12
 
 struct abuse_xfr_hdr {
-	__u64			ab_id;
-	__u64			ab_offset;
-	__u64			ab_len;
-	__u32			ab_command;
-	__u32			ab_vec_count;
-	__u64			ab_transfer_address;
+	__u64 ab_id;
+	__u64 ab_offset;
+	__u64 ab_len;
+	__u32 ab_command;
+	__u32 ab_vec_count;
+	__u64 ab_transfer_address;
 };
 
 struct abuse_completion {
