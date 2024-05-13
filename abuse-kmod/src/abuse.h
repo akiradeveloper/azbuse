@@ -13,7 +13,6 @@
 
 enum {
 	ABUSE_FLAGS_READ_ONLY	= 1,
-	ABUSE_FLAGS_RECONNECT	= 2,
 };
 
 #include <linux/types.h> /* for __u64 */

@@ -54,15 +54,13 @@ static int abuse_reset(struct abuse_device *ab)
 
 	abuse_flush_pending_requests(ab);
 	ab->ab_flags = 0;
-	ab->ab_errors = 0;
 	ab->ab_blocksize = 0;
 	ab->ab_size = 0;
-	ab->ab_max_queue = 0;
 	set_capacity(ab->ab_disk, 0);
 	if (ab->ab_device) {
 		bd_set_nr_sectors(ab->ab_device, 0);
 		// Invalidate clean unused buffers and pagecache.
-		invalidate_bdev(ab->ab_device);
+		invalidate_disk(ab->ab_device);
 		blkdev_put(ab->ab_device, FMODE_READ);
 		ab->ab_device = NULL;
 		module_put(THIS_MODULE);
@@ -75,12 +73,7 @@ static int __abuse_get_status(struct abuse_device *ab, struct abuse_info *info)
 	memset(info, 0, sizeof(*info));
 	info->ab_size = ab->ab_size;
 	info->ab_number = ab->ab_number;
-	info->ab_flags = ab->ab_flags;
 	info->ab_blocksize = ab->ab_blocksize;
-	info->ab_max_queue = ab->ab_max_queue;
-	info->ab_queue_size = ab->ab_queue_size;
-	info->ab_errors = ab->ab_errors;
-	info->ab_max_vecs = BIO_MAX_PAGES;
 	return 0;
 }
 
@@ -129,16 +122,11 @@ static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev
 	__module_get(THIS_MODULE);
 
 	ab->ab_device = bdev;
-	ab->ab_queue->queuedata = ab;
-	blk_queue_flag_set(QUEUE_FLAG_NONROT, ab->ab_queue);
 
 	ab->ab_size = info->ab_size;
-	ab->ab_flags = (info->ab_flags & ABUSE_FLAGS_READ_ONLY);
 	ab->ab_blocksize = info->ab_blocksize;
-	ab->ab_max_queue = info->ab_max_queue;
 
-	set_capacity(ab->ab_disk, size);
-	set_device_ro(bdev, (ab->ab_flags & ABUSE_FLAGS_READ_ONLY) != 0);
+	set_device_ro(bdev, 0);
 	set_capacity(ab->ab_disk, size);
 	bd_set_nr_sectors(bdev, size);
 	set_blocksize(bdev, ab->ab_blocksize);
@@ -286,10 +274,7 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 		return -ENOMSG;
 	}
 
-	spin_lock_irqsave(req->rq->q->queue_lock, flags);
 	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.ab_errno));
-	spin_unlock_irqrestore(req->rq->q->queue_lock, flags);
-
 	return 0;
 }
 
@@ -388,9 +373,9 @@ static blk_status_t abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_
 
 	spin_lock_irq(&ab->ab_lock);
 	list_add_tail(&req->list, &ab->ab_reqlist);
-	wake_up(&ab->ab_event);
 	spin_unlock_irq(&ab->ab_lock);
 
+	wake_up(&ab->ab_event);
 	return BLK_STS_OK;
 }
 
@@ -400,7 +385,7 @@ static struct blk_mq_ops abuse_mq_ops = {
 };
 
 // FIXME: error propagation
-static struct abuse_device *abuse_alloc(int i)
+static struct abuse_device *abuse_add(int i)
 {
 	struct abuse_device *ab;
 	struct gendisk *disk;
@@ -436,9 +421,9 @@ static struct abuse_device *abuse_alloc(int i)
 	disk = ab->ab_disk = blk_mq_alloc_disk(&ab->tag_set, ab);
 	if (!disk)
 		goto out_cleanup_tags;
-
 	ab->ab_queue = disk->queue;
 	ab->ab_queue->queuedata = ab;
+	blk_queue_flag_set(QUEUE_FLAG_NONROT, ab->ab_queue);
 
 	disk->major	= ABUSE_MAJOR;
 	disk->first_minor = i;
@@ -451,7 +436,6 @@ static struct abuse_device *abuse_alloc(int i)
 	if (err)
 		goto out_cleanup_disk;
 
-	mutex_init(&ab->ab_ctl_mutex);
 	ab->ab_number = i;
 	init_waitqueue_head(&ab->ab_event);
 	spin_lock_init(&ab->ab_lock);
@@ -486,40 +470,31 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct abuse_device *new, *remove;
 	int err;
 
-	// ioctl types before ABUSE_CTL_ADD (including GET_REQ, SET_REQ)
-	// are executed sequentially with mutex held.
-	if (cmd < ABUSE_CTL_ADD) {
-		if (ab == NULL)
-			return -EINVAL;
-		mutex_lock(&ab->ab_ctl_mutex);
-	}
-
 	switch (cmd) {
-	case ABUSE_GET_STATUS:
-		err = abuse_get_status(ab, ab->ab_device, (struct abuse_info __user *) arg);
-		break;
-	case ABUSE_SET_STATUS:
-		err = abuse_set_status(ab, ab->ab_device, (struct abuse_info __user *) arg);
-		break;
-	case ABUSE_RESET:
-		err = abuse_reset(ab);
-		break;
 	case ABUSE_GET_REQ:
 		err = abuse_get_req(ab, (struct abuse_xfr_hdr __user *) arg);
 		break;
 	case ABUSE_PUT_REQ:
 		err = abuse_put_req(ab, (struct abuse_completion __user *) arg);
 		break;
+	case ABUSE_GET_STATUS:
+		mutex_lock(&abuse_ctl_mutex);
+		err = abuse_get_status(ab, ab->ab_device, (struct abuse_info __user *) arg);
+		mutex_unlock(&abuse_ctl_mutex);
+		break;
+	case ABUSE_SET_STATUS:
+		mutex_lock(&abuse_ctl_mutex);
+		err = abuse_set_status(ab, ab->ab_device, (struct abuse_info __user *) arg);
+		mutex_unlock(&abuse_ctl_mutex);
+		break;
+	case ABUSE_RESET:
+		mutex_lock(&abuse_ctl_mutex);
+		err = abuse_reset(ab);
+		mutex_unlock(&abuse_ctl_mutex);
+		break;
 	case ABUSE_CTL_ADD:
 		mutex_lock(&abuse_ctl_mutex);
-		new = abuse_alloc(arg);
-		if (new) {
-			add_disk(new->ab_disk);
-			err = new->ab_number;
-		} else {
-			// FIXME: better error handling
-			err = -EEXIST;
-		}
+		abuse_add();
 		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_CTL_REMOVE:
@@ -534,14 +509,12 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_CONNECT:
+		mutex_lock(&abuse_ctl_mutex);
 		err = abuse_connect(filp, arg);
+		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	default:
 		err = -EINVAL;
-	}
-
-	if (cmd < ABUSE_CTL_ADD) {
-		mutex_unlock(&ab->ab_ctl_mutex);
 	}
 
 	return err;
