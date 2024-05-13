@@ -16,33 +16,29 @@ enum {
 	ABUSE_FLAGS_RECONNECT	= 2,
 };
 
-#include <linux/types.h>	/* for __u64 */
+#include <linux/types.h> /* for __u64 */
 
 struct abuse_info {
-	__u64		   ab_device;			/* ioctl r/o */
-	__u64		   ab_size;			/* ioctl r/w */
-	__u32		   ab_number;			/* ioctl r/o */
-	__u32		   ab_flags;			/* ioctl r/w */
-	__u32		   ab_blocksize;		/* ioctl r/w */
-	__u32		   ab_max_queue;		/* ioctl r/w */
-	__u32		   ab_queue_size;		/* ioctl r/o */
-	__u32		   ab_errors;			/* ioctl r/o */
-	__u32		   ab_max_vecs;			/* ioctl r/o */
+	__u64 ab_device; /* r/o */
+	__u64 ab_size; /* r/w */
+	__u32 ab_number; /* r/o */
+	__u32 ab_flags; /* r/w */
+	__u32 ab_blocksize; /* r/w */
+	__u32 ab_max_queue; /* r/w */
+	__u32 ab_queue_size; /* r/o */
+	__u32 ab_errors; /* r/o */
+	__u32 ab_max_vecs; /* r/o */
 };
 
-#define ABUSE_GET_STATUS	0x4120
-#define ABUSE_SET_STATUS	0x4121
-#define ABUSE_SET_POLL		0x4122
-#define ABUSE_RESET		0x4123
-#define ABUSE_GET_REQ		0x4124
-#define ABUSE_PUT_REQ		0x4125
+#define ABUSE_GET_STATUS 0x4120
+#define ABUSE_SET_STATUS 0x4121
+#define ABUSE_RESET	0x4122
+#define ABUSE_GET_REQ 0x4123
+#define ABUSE_PUT_REQ 0x4124
 
-#define ABUSE_CTL_ADD		0x4186
-#define ABUSE_CTL_REMOVE	0x4187
-#define ABUSE_CTL_GET_FREE	0x4188
-
-#define ABUSE_ACQUIRE		0x4189
-#define ABUSE_RELEASE		0x418A
+#define ABUSE_CTL_ADD 0x4186
+#define ABUSE_CTL_REMOVE 0x4187
+#define ABUSE_ACQUIRE		0x4188
 
 struct abuse_vec {
 	__u64			ab_address;

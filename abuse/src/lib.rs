@@ -68,23 +68,20 @@ pub struct AbuseCompletion {
 
 const ABUSE_GET_STATUS: u16 = 0x4120;
 const ABUSE_SET_STATUS: u16 = 0x4121;
-const ABUSE_SET_POLL: u16 = 0x4122;
-const ABUSE_RESET: u16 = 0x4123;
-const ABUSE_GET_REQ: u16 = 0x4124;
-const ABUSE_PUT_REQ: u16 = 0x4125;
+const ABUSE_RESET: u16 = 0x4122;
+const ABUSE_GET_REQ: u16 = 0x4123;
+const ABUSE_PUT_REQ: u16 = 0x4124;
 
 const ABUSE_CTL_ADD: u16 = 0x4186;
 const ABUSE_CTL_REMOVE: u16 = 0x4187;
-const ABUSE_CTL_GET_FREE: u16 = 0x4188;
+const ABUSE_ACQUIRE: u16 = 0x4188;
 
-const ABUSE_ACQUIRE: u16 = 0x4189;
-
-nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
-nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
-nix::ioctl_write_int_bad!(abuse_acquire, ABUSE_ACQUIRE);
 nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
+nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
+nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
 nix::ioctl_read_bad!(abuse_get_req, ABUSE_GET_REQ, AbuseXfr);
 nix::ioctl_write_ptr_bad!(abuse_put_req, ABUSE_PUT_REQ, AbuseCompletion);
+nix::ioctl_write_int_bad!(abuse_acquire, ABUSE_ACQUIRE);
 
 pub struct IOVec {
     page_address: usize,
