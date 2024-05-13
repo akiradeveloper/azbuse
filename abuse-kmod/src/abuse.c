@@ -433,20 +433,23 @@ static struct abuse_device *abuse_alloc(int i)
 	if (err)
 		goto out_free_idr;
 
-	ab->ab_queue = blk_mq_init_queue(&ab->tag_set);
-	if (IS_ERR_OR_NULL(ab->ab_queue))
-		goto out_cleanup_tags;
-	ab->ab_queue->queuedata = ab;
-
 	disk = ab->ab_disk = blk_mq_alloc_disk(&ab->tag_set, ab);
 	if (!disk)
-		goto out_free_queue;
+		goto out_cleanup_tags;
+
+	ab->ab_queue = disk->queue;
+	ab->ab_queue->queuedata = ab;
+
 	disk->major	= ABUSE_MAJOR;
 	disk->first_minor = i;
 	disk->fops = &ab_fops;
 	disk->private_data = ab;
 	disk->queue	= ab->ab_queue;
 	sprintf(disk->disk_name, "abuse%d", i);
+
+	err = add_disk(disk);
+	if (err)
+		goto out_cleanup_disk;
 
 	mutex_init(&ab->ab_ctl_mutex);
 	ab->ab_number = i;
@@ -456,6 +459,8 @@ static struct abuse_device *abuse_alloc(int i)
 
 	return ab;
 
+out_cleanup_disk;
+	put_disk(disk);
 out_cleanup_tags:
 	blk_mq_free_tag_set(&ab->tag_set);
 out_free_idr:
