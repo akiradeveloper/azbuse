@@ -96,7 +96,7 @@ static int abuse_reset(struct abuse_device *ab)
 	return 0;
 }
 
-static int abuse_set_status_int(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info *info)
+static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info *info)
 {
 	int err;
 
@@ -112,37 +112,18 @@ static int abuse_set_status_int(struct abuse_device *ab, struct block_device *bd
 	if (unlikely(info->ab_blocksize * blocks != info->ab_size))
 		return -EINVAL;
 
-	// This unlikely happens when ABUSE_SET_STATUS ioctl is called twice.
-	// But this is unusual.
-	if (unlikely(bdev)) {
-		if (bdev != ab->ab_device)
-			return -EBUSY;
-		if (!(ab->ab_flags & ABUSE_FLAGS_RECONNECT))
-			return -EINVAL;
-
-		/*
-		 * Don't allow these to change on a reconnect.
-		 * We do allow changing the max queue size and
-		 * the RO flag.
-		 */
-		if (ab->ab_size != info->ab_size ||
-		    ab->ab_blocksize != info->ab_blocksize ||
-		    info->ab_max_queue > ab->ab_queue_size)
-		    	return -EINVAL;
-	} else {
-		// Acquire the block_device from ab_disk (:: gen_disk)
-		bdev = bdget_disk(ab->ab_disk, 0);
-		if (IS_ERR(bdev)) {
-			err = PTR_ERR(bdev);
-			return err;
-		}
-		err = blkdev_get(bdev, FMODE_READ, NULL);
-		if (err) {
-			bdput(bdev);
-			return err;
-		}
-		__module_get(THIS_MODULE);
+	// Acquire the block_device from ab_disk (:: gen_disk)
+	bdev = bdget_disk(ab->ab_disk, 0);
+	if (IS_ERR(bdev)) {
+		err = PTR_ERR(bdev);
+		return err;
 	}
+	err = blkdev_get(bdev, FMODE_READ, NULL);
+	if (err) {
+		bdput(bdev);
+		return err;
+	}
+	__module_get(THIS_MODULE);
 
 	ab->ab_device = bdev;
 	ab->ab_queue->queuedata = ab;
@@ -170,11 +151,11 @@ abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struc
 	struct abuse_info info;
 	if (copy_from_user(&info, arg, sizeof (struct abuse_info)))
 		return -EFAULT;
-	return abuse_set_status_int(ab, bdev, &info);
+	return __abuse_set_status(ab, bdev, &info);
 }
 
 static int
-abuse_get_status_int(struct abuse_device *ab, struct abuse_info *info)
+__abuse_get_status(struct abuse_device *ab, struct abuse_info *info)
 {
 	memset(info, 0, sizeof(*info));
 	info->ab_size = ab->ab_size;
@@ -197,7 +178,7 @@ abuse_get_status(struct abuse_device *ab, struct block_device *bdev, struct abus
 	if (!arg)
 		err = -EINVAL;
 	if (!err)
-		err = abuse_get_status_int(ab, &info);
+		err = __abuse_get_status(ab, &info);
 	if (!err && copy_to_user(arg, &info, sizeof(info)))
 		err = -EFAULT;
 

@@ -141,9 +141,10 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
     let engine = Arc::new(engine);
     let fd = open("/dev/abctl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/abctl");
-    let devpath = format!("/dev/abuse{}", config.dev_number);
-    let devfd =
-        open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device");
+    let devfd = {
+        let devpath = format!("/dev/abuse{}", config.dev_number);
+        open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device")
+    };
 
     // This attaches struct ab_device to ctlfd->private_data
     unsafe { abuse_acquire(fd, devfd) }.expect("couldn't acquire abuse device");
