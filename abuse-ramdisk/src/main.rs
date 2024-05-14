@@ -1,11 +1,11 @@
 use abuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
 use async_trait::async_trait;
-use clap::Clap;
+use clap::Parser;
 use core::ffi::c_void;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     dev_number: u16,
 }
