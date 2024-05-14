@@ -32,7 +32,6 @@
 
 static DEFINE_MUTEX(abuse_ctl_mutex);
 static DEFINE_IDR(abuse_index_idr);
-static struct class *abuse_class;
 
 static void abuse_flush_pending_requests(struct abuse_device *ab)
 {
@@ -87,8 +86,6 @@ static int abuse_get_status(struct abuse_device *ab, struct block_device *bdev, 
 
 static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info *info)
 {
-	int err;
-
 	sector_t size = (sector_t)(info->ab_size >> SECTOR_SHIFT);
 	loff_t blocks;
 
@@ -232,7 +229,6 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 {
 	struct abuse_completion xfr;
 	struct ab_req *req = NULL;
-	unsigned long flags;
 
 	if (!arg)
 		return -EINVAL;
@@ -448,7 +444,7 @@ static void abuse_remove(struct abuse_device *ab)
 static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct abuse_device *ab = filp->private_data;
-	struct abuse_device *new, *remove;
+	struct abuse_device *remove;
 	int err;
 
 	switch (cmd) {
@@ -475,7 +471,7 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	case ABUSE_CTL_ADD:
 		mutex_lock(&abuse_ctl_mutex);
-		abuse_add();
+		abuse_add(arg);
 		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_CTL_REMOVE:
@@ -531,17 +527,9 @@ static int __init abuse_init(void)
 		goto unregister_misc;
 	}
 
-	abuse_class = class_create(THIS_MODULE, "abuse");
-	if (IS_ERR(abuse_class)) {
-		err = PTR_ERR(abuse_class);
-		goto unregister_blk;
-	}
-
 	printk(KERN_INFO "abuse: module loaded\n");
 	return 0;
 
-unregister_blk:
-	unregister_blkdev(ABUSE_MAJOR, "abuse");
 unregister_misc:
 	misc_deregister(&abuse_misc);
 
@@ -557,12 +545,9 @@ static int abuse_exit_cb(int id, void *ptr, void *data)
 
 static void __exit abuse_exit(void)
 {
-	unsigned long range;
-
 	idr_for_each(&abuse_index_idr, abuse_exit_cb, NULL);
 	idr_destroy(&abuse_index_idr);
 
-	class_destroy(abuse_class);
 	unregister_blkdev(ABUSE_MAJOR, "abuse");
 	misc_deregister(&abuse_misc);
 }
