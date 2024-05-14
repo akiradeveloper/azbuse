@@ -183,26 +183,35 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
                 let mut io_vecs = vec![];
                 for i in 0..n {
+                    let mut prot_flags = {
+                        let mut out = ProtFlags::empty();
+                        out.insert(ProtFlags::PROT_READ);
+                        out.insert(ProtFlags::PROT_WRITE);
+                        out
+                    };
+
+                    let mut map_flags = {
+                        let mut out = MapFlags::empty();
+                        out.insert(MapFlags::MAP_SHARED);
+                        out.insert(MapFlags::MAP_POPULATE);
+                        out.insert(MapFlags::MAP_NONBLOCK);
+                        out
+                    };
+
                     let io_vec = &xfr_io_vec[i];
+
+                    // Passing NULL to mmap is to use undesignated virtual memory space for mapping.
+                    let null_p = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                     assert!(io_vec.address % 4096 == 0);
-
-                    let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                     let page_address = io_vec.address as i64;
-                    let map_len = io_vec.offset as usize + io_vec.len as usize;
-                    println!("pfn={}, len={} bytes", page_address >> 9, map_len);
+                    // We map [0, map_end) but the actual data exists in [io_vec.offset, map_end).
+                    let map_end = io_vec.offset as usize + io_vec.len as usize;
+                    println!("map pfn={} [0,{})", page_address >> 9, map_end);
 
-                    let mut prot_flags = ProtFlags::empty();
-                    prot_flags.insert(ProtFlags::PROT_READ);
-                    prot_flags.insert(ProtFlags::PROT_WRITE);
-
-                    let mut map_flags = MapFlags::empty();
-                    map_flags.insert(MapFlags::MAP_SHARED);
-                    map_flags.insert(MapFlags::MAP_POPULATE);
-                    map_flags.insert(MapFlags::MAP_NONBLOCK);
-
-                    // Last argument page_offset should be a multiple of page size
-                    // This passes to xxx_mmap as vma.pg_off after 9 right shift.
-                    let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }
+                    // Last argument page_offset should be a multiple of page size and
+                    // is passed to in-kernel mmap as pfn by shifting 9 bits to the right.
+                    // pfn = page_address >> 9;
+                    let p = unsafe { mmap(null_p, map_end, prot_flags, map_flags, fd, page_address) }
                         .expect("failed to mmap");
 
                     io_vecs.push(IOVec {
