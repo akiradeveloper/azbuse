@@ -142,9 +142,6 @@ static unsigned xfr_command_from_cmd_flags(unsigned cmd_flags) {
 		case REQ_OP_SECURE_ERASE:
 			ret = CMD_OP_SECURE_ERASE;
 			break;
-		case REQ_OP_WRITE_SAME:
-			ret = CMD_OP_WRITE_SAME;
-			break;
 		case REQ_OP_WRITE_ZEROES:
 			ret = CMD_OP_WRITE_ZEROES;
 			break;

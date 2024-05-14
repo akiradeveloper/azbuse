@@ -10,13 +10,12 @@ bitflags! {
     pub struct CmdFlags: u32 {
         const OP_MASK = (1<<8) - 1;
         const OP_UNKNOWN = 0;
-        const OP_WRITE = 1;
-        const OP_READ = 2;
+        const OP_READ = 1;
+        const OP_WRITE = 2;
         const OP_FLUSH = 3;
-        const OP_WRITE_SAME = 4;
-        const OP_WRITE_ZEROES = 5;
-        const OP_DISCARD = 6;
-        const OP_SECURE_ERASE = 7;
+        const OP_DISCARD = 4;
+        const OP_SECURE_ERASE = 5;
+        const OP_WRITE_ZEROES = 6;
 
         const FUA = 1<<8;
         const PREFLUSH = 1<<9;

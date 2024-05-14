@@ -46,13 +46,12 @@ struct abuse_vec {
 };
 
 #define CMD_OP_UNKNOWN 0
-#define CMD_OP_WRITE 1
-#define CMD_OP_READ 2
+#define CMD_OP_READ 1
+#define CMD_OP_WRITE 2
 #define CMD_OP_FLUSH 3
-#define CMD_OP_WRITE_SAME 4
-#define CMD_OP_WRITE_ZEROES 5
-#define CMD_OP_DISCARD 6
-#define CMD_OP_SECURE_ERASE 7
+#define CMD_OP_DISCARD 4
+#define CMD_OP_SECURE_ERASE 5
+#define CMD_OP_WRITE_ZEROES 6
 
 #define CMD_FUA 1<<8
 #define CMD_PREFLUSH 1<<9
