@@ -56,15 +56,12 @@ static int abuse_reset(struct abuse_device *ab)
 	ab->ab_flags = 0;
 	ab->ab_blocksize = 0;
 	ab->ab_size = 0;
-	set_capacity(ab->ab_disk, 0);
+	invalidate_disk(ab->ab_disk);
 	if (ab->ab_device) {
-		bd_set_nr_sectors(ab->ab_device, 0);
-		// Invalidate clean unused buffers and pagecache.
-		invalidate_disk(ab->ab_device);
 		blkdev_put(ab->ab_device, FMODE_READ);
 		ab->ab_device = NULL;
-		module_put(THIS_MODULE);
 	}
+	module_put(THIS_MODULE);
 	return 0;
 }
 
@@ -126,9 +123,8 @@ static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev
 	ab->ab_size = info->ab_size;
 	ab->ab_blocksize = info->ab_blocksize;
 
-	set_device_ro(bdev, 0);
+	set_disk_ro(ab->ab_disk, 0);
 	set_capacity(ab->ab_disk, size);
-	bd_set_nr_sectors(bdev, size);
 	set_blocksize(bdev, ab->ab_blocksize);
 
 	return 0;
@@ -380,8 +376,8 @@ static blk_status_t abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_
 }
 
 static struct blk_mq_ops abuse_mq_ops = {
-	.init_request	= abuse_init_request,
-	.queue_rq       = abuse_queue_rq,
+	.init_request = abuse_init_request,
+	.queue_rq = abuse_queue_rq,
 };
 
 // FIXME: error propagation

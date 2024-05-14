@@ -108,7 +108,7 @@ struct abuse_device {
 	struct gendisk *ab_disk;
 
 	/* user xfer area */
-	struct abuse_vec ab_xfer[BIO_MAX_PAGES];
+	struct abuse_vec ab_xfer[BIO_MAX_VECS];
 };
 
 struct ab_req {
