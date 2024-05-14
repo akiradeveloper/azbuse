@@ -444,6 +444,7 @@ static struct abuse_device *abuse_add(int i)
 	return ab;
 
 out_cleanup_disk;
+	del_gendisk(ab->ab_disk);
 	put_disk(disk);
 out_cleanup_tags:
 	blk_mq_free_tag_set(&ab->tag_set);
@@ -458,9 +459,9 @@ out:
 static void abuse_remove(struct abuse_device *ab)
 {
 	del_gendisk(ab->ab_disk);
+	put_disk(ab->ab_disk);
 	blk_mq_free_tag_set(&ab->tag_set);
 	idr_remove(&abuse_index_idr, ab->ab_number);
-	put_disk(ab->ab_disk);
 	kfree(ab);
 }
 
@@ -537,9 +538,8 @@ static struct miscdevice abuse_misc = {
 
 static int __init abuse_init(void)
 {
-	int i, nr, err;
+	int err;
 	unsigned long range;
-	struct abuse_device *ab;
 
 	err = misc_register(&abuse_misc);
 	if (err < 0)
