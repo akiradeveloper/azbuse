@@ -42,6 +42,15 @@ jobs:
           sudo abusectl add 0 
           ls /dev
 
+      - name: Connect /dev/abuse0 and ramdisk
+        run: |
+          sudo cargo build -p abuse-ramdisk --release
+          sudo target/release/abuse-ramdisk 0 &
+          sleep 1
+
+      - name: Logical test (badblocks)
+        run: sudo badblocks -wsv /dev/abuse0
+
       - name: Cat make.log
         run: sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
         if: ${{ failure() }}
