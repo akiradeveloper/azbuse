@@ -33,7 +33,7 @@ jobs:
         run: sudo modprobe abuse
 
       - name: Install abusectl
-        run: sudo cargo install -p abusectl
+        run: sudo cargo install --path abusectl
 
       - name: Cat make.log
         run: sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
