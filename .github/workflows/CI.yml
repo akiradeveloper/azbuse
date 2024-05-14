@@ -32,7 +32,7 @@ jobs:
       - name: Load module
         run: |
           sudo modprobe abuse
-          ls /dev/abuse*
+          ls /dev
 
       - name: Install abusectl
         run: sudo cargo install --path abusectl --root /usr/local
@@ -40,7 +40,7 @@ jobs:
       - name: Add /dev/abuse0
         run: |
           sudo abusectl add 0 
-          ls /dev/abuse*
+          ls /dev
 
       - name: Cat make.log
         run: sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
