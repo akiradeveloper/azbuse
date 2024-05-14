@@ -57,10 +57,6 @@ static int abuse_reset(struct abuse_device *ab)
 	ab->ab_blocksize = 0;
 	ab->ab_size = 0;
 	invalidate_disk(ab->ab_disk);
-	if (ab->ab_device) {
-		blkdev_put(ab->ab_device, FMODE_READ);
-		ab->ab_device = NULL;
-	}
 	module_put(THIS_MODULE);
 	return 0;
 }
@@ -105,27 +101,17 @@ static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev
 	if (unlikely(info->ab_blocksize * blocks != info->ab_size))
 		return -EINVAL;
 
-	// Acquire the block_device from ab_disk (:: gen_disk)
-	bdev = bdget_disk(ab->ab_disk, 0);
-	if (IS_ERR(bdev)) {
-		err = PTR_ERR(bdev);
-		return err;
-	}
-	err = blkdev_get(bdev, FMODE_READ, NULL);
-	if (err) {
-		bdput(bdev);
-		return err;
-	}
 	__module_get(THIS_MODULE);
 
-	ab->ab_device = bdev;
-
-	ab->ab_size = info->ab_size;
-	ab->ab_blocksize = info->ab_blocksize;
-
 	set_disk_ro(ab->ab_disk, 0);
+
 	set_capacity(ab->ab_disk, size);
-	set_blocksize(bdev, ab->ab_blocksize);
+	ab->ab_size = info->ab_size;
+
+	blk_queue_logical_block_size(ab->ab_queue, ab->ab_blocksize);
+	blk_queue_physical_block_size(ab->ab_queue, ab->ab_blocksize);
+	blk_queue_io_min(ab->ab_queue, ab->ab_blocksize);
+	ab->ab_blocksize = info->ab_blocksize;
 
 	return 0;
 }
@@ -414,7 +400,7 @@ static struct abuse_device *abuse_add(int i)
 	if (err)
 		goto out_free_idr;
 
-	disk = ab->ab_disk = blk_mq_alloc_disk(&ab->tag_set, ab);
+	disk = blk_mq_alloc_disk(&ab->tag_set, ab);
 	if (!disk)
 		goto out_cleanup_tags;
 	ab->ab_queue = disk->queue;
@@ -423,15 +409,16 @@ static struct abuse_device *abuse_add(int i)
 
 	disk->major	= ABUSE_MAJOR;
 	disk->first_minor = i;
+	disk->minors = 1;
 	disk->fops = &ab_fops;
 	disk->private_data = ab;
-	disk->queue	= ab->ab_queue;
 	sprintf(disk->disk_name, "abuse%d", i);
 
 	err = add_disk(disk);
 	if (err)
 		goto out_cleanup_disk;
 
+	ab->ab_disk = disk;
 	ab->ab_number = i;
 	init_waitqueue_head(&ab->ab_event);
 	spin_lock_init(&ab->ab_lock);
