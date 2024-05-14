@@ -107,7 +107,6 @@ static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev
 
 	blk_queue_logical_block_size(ab->ab_queue, ab->ab_blocksize);
 	blk_queue_physical_block_size(ab->ab_queue, ab->ab_blocksize);
-	blk_queue_io_min(ab->ab_queue, ab->ab_blocksize);
 	ab->ab_blocksize = info->ab_blocksize;
 
 	return 0;
