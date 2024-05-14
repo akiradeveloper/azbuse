@@ -320,12 +320,12 @@ static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
 	return remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 }
 
-static int ab_open(struct block_device *bdev, fmode_t mode)
+static int ab_open(struct gendisk *disk, blk_mode_t mode)
 {
 	return 0;
 }
 
-static void ab_release(struct gendisk *disk, fmode_t mode)
+static void ab_release(struct gendisk *disk)
 {
 	return;
 }
@@ -426,7 +426,7 @@ static struct abuse_device *abuse_add(int i)
 
 	return ab;
 
-out_cleanup_disk;
+out_cleanup_disk:
 	del_gendisk(ab->ab_disk);
 	put_disk(disk);
 out_cleanup_tags:
