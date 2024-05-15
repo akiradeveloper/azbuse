@@ -199,7 +199,6 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     let page_address = io_vec.address as i64;
                     // We map [0, map_end) but the actual data exists in [io_vec.offset, map_end).
                     let map_end = io_vec.offset as usize + io_vec.len as usize;
-                    println!("map pfn={} [0,{})", page_address >> 9, map_end);
 
                     // Last argument page_offset should be a multiple of page size and
                     // is passed to in-kernel mmap as pfn by shifting 9 bits to the right.
