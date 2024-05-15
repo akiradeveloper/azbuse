@@ -311,20 +311,8 @@ static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
 	return remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 }
 
-static int ab_open(struct gendisk *disk, blk_mode_t mode)
-{
-	return 0;
-}
-
-static void ab_release(struct gendisk *disk)
-{
-	return;
-}
-
 static struct block_device_operations ab_fops = {
 	.owner = THIS_MODULE,
-	.open =	ab_open,
-	.release = ab_release,
 };
 
 static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
