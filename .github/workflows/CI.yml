@@ -46,7 +46,7 @@ jobs:
       - name: Connect /dev/abuse1 and ramdisk
         run: |
           sudo cargo build -p abuse-ramdisk --release
-          sudo target/release/abuse-ramdisk 1 &
+          sudo target/release/abuse-ramdisk 1 > /var/abuse.log &
           sleep 1
           lsblk
 
@@ -54,5 +54,7 @@ jobs:
         run: sudo badblocks -wsv /dev/abuse1
 
       - name: Cat make.log
-        run: sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
+        run: |
+          sudo cat -q /var/lib/dkms/abuse/1.0.0/build/make.log
+          sudo cat -q /var/abuse.log
         if: ${{ failure() }}
