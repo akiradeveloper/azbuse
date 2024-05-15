@@ -1,22 +1,21 @@
 use async_trait::async_trait;
 use bitflags::bitflags;
-use nix::sys::mman::{mmap, munmap, ProtFlags, MapFlags};
 use core::ffi::c_void;
-use mio::{Poll, Interest, Token, Events};
 use mio::unix::SourceFd;
+use mio::{Events, Interest, Poll, Token};
+use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
 use std::sync::Arc;
 
 bitflags! {
     pub struct CmdFlags: u32 {
         const OP_MASK = (1<<8) - 1;
         const OP_UNKNOWN = 0;
-        const OP_WRITE = 1;
-        const OP_READ = 2;
+        const OP_READ = 1;
+        const OP_WRITE = 2;
         const OP_FLUSH = 3;
-        const OP_WRITE_SAME = 4;
-        const OP_WRITE_ZEROES = 5;
-        const OP_DISCARD = 6;
-        const OP_SECURE_ERASE = 7;
+        const OP_DISCARD = 4;
+        const OP_SECURE_ERASE = 5;
+        const OP_WRITE_ZEROES = 6;
 
         const FUA = 1<<8;
         const PREFLUSH = 1<<9;
@@ -29,15 +28,9 @@ bitflags! {
 #[repr(C)]
 #[derive(Default, Debug)]
 pub struct AbuseInfo {
-    device: u64,
-    size: u64,
     number: u32,
-    flags: u32,
+    size: u64,
     blocksize: u32,
-    max_queue: u32,
-    queue_size: u32,
-    errors: u32,
-    max_vecs: u32,
 }
 
 #[repr(C)]
@@ -68,25 +61,17 @@ pub struct AbuseCompletion {
 
 const ABUSE_GET_STATUS: u16 = 0x4120;
 const ABUSE_SET_STATUS: u16 = 0x4121;
-const ABUSE_SET_POLL: u16 = 0x4122;
-const ABUSE_RESET: u16 = 0x4123;
-const ABUSE_GET_REQ: u16 = 0x4124;
-const ABUSE_PUT_REQ: u16 = 0x4125;
+const ABUSE_RESET: u16 = 0x4122;
+const ABUSE_GET_REQ: u16 = 0x4123;
+const ABUSE_PUT_REQ: u16 = 0x4124;
+const ABUSE_CONNECT: u16 = 0x4188;
 
-const ABUSE_CTL_ADD: u16 = 0x4186;
-const ABUSE_CTL_REMOVE: u16 = 0x4187;
-const ABUSE_CTL_GET_FREE: u16 = 0x4188;
-
-const ABUSE_ACQUIRE: u16 = 0x4189;
-const ABUSE_RELEASE: u16 = 0x418A;
-
-nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
-nix::ioctl_none_bad!(abuse_release, ABUSE_RELEASE);
-nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
-nix::ioctl_write_int_bad!(abuse_acquire, ABUSE_ACQUIRE);
 nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
+nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
+nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
 nix::ioctl_read_bad!(abuse_get_req, ABUSE_GET_REQ, AbuseXfr);
 nix::ioctl_write_ptr_bad!(abuse_put_req, ABUSE_PUT_REQ, AbuseCompletion);
+nix::ioctl_write_int_bad!(abuse_connect, ABUSE_CONNECT);
 
 pub struct IOVec {
     page_address: usize,
@@ -127,8 +112,7 @@ pub trait StorageEngine: Send + Sync + 'static {
     async fn call(&self, req: Request) -> Response;
 }
 
-// This could be BIO_MAX_VECS = 256 (in 5.10)
-const MAX_QUEUE: usize = 1<<16;
+const BIO_MAX_VECS: usize = 256;
 
 pub struct Config {
     pub dev_number: u16,
@@ -141,11 +125,13 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
     let engine = Arc::new(engine);
     let fd = open("/dev/abctl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/abctl");
-    let devpath = format!("/dev/abuse{}", config.dev_number);
-    let devfd = open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device");
+    let devfd = {
+        let devpath = format!("/dev/abuse{}", config.dev_number);
+        open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device")
+    };
 
-    // This attaches struct ab_device to ctlfd->private_data 
-    unsafe { abuse_acquire(fd, devfd) }.expect("couldn't acquire abuse device");
+    // This attaches struct ab_device to ctlfd->private_data
+    unsafe { abuse_connect(fd, devfd) }.expect("couldn't acquire abuse device");
     let mut info = AbuseInfo::default();
     unsafe { abuse_get_status(fd, &mut info) }.expect("couldn't get info");
     dbg!(&info);
@@ -153,61 +139,78 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     // size must be some multiple of blocksize
     info.size = config.dev_size;
     info.blocksize = 4096;
-    info.max_queue = MAX_QUEUE as u32;
     unsafe { abuse_set_status(fd, &info) }.expect("couldn't set info");
 
+    dbg!("start poll");
     let mut poll = Poll::new().unwrap();
     let mut source = SourceFd(&fd);
-    poll.registry().register(
-        &mut source,
-        Token(0),
-        Interest::READABLE,
-    ).expect("failed to set up poll");
+    poll.registry()
+        .register(&mut source, Token(0), Interest::READABLE)
+        .expect("failed to set up poll");
     let mut events = Events::with_capacity(1);
 
-    let iovec = [AbuseXfrIoVec::default(); MAX_QUEUE];
-    let io_vec_address: u64 = unsafe {
-            std::mem::transmute::<* const AbuseXfrIoVec, u64>(iovec.as_ptr())
-    };
+    let iovec = [AbuseXfrIoVec::default(); BIO_MAX_VECS];
+    let io_vec_address: u64 =
+        unsafe { std::mem::transmute::<*const AbuseXfrIoVec, u64>(iovec.as_ptr()) };
     let mut xfr = AbuseXfr {
         io_vec_address,
-        .. AbuseXfr::default()
+        ..AbuseXfr::default()
     };
     loop {
-        // timeout = None
+        dbg!("polling");
+        // When there are some requests in the in-kernel queue, this returns events including Token(0).
+        // Then the internal loop consumes all requests in the queue.
         poll.poll(&mut events, None).expect("failed to poll");
         'poll: for ev in &events {
+            dbg!(ev);
             loop {
                 if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
                     break 'poll;
                 }
+                dbg!(&xfr.cmd_flags, &xfr.len);
 
                 let n = xfr.io_vec_count as usize;
-                let xfr_io_vec = unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
-                let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
+                let xfr_io_vec = {
+                    let out = unsafe {
+                        std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address)
+                    };
+                    let out = unsafe { std::slice::from_raw_parts(out, n) };
+                    out
+                };
 
                 let mut io_vecs = vec![];
                 for i in 0..n {
+                    let mut prot_flags = {
+                        let mut out = ProtFlags::empty();
+                        out.insert(ProtFlags::PROT_READ);
+                        out.insert(ProtFlags::PROT_WRITE);
+                        out
+                    };
+
+                    let mut map_flags = {
+                        let mut out = MapFlags::empty();
+                        out.insert(MapFlags::MAP_SHARED);
+                        out.insert(MapFlags::MAP_POPULATE);
+                        out.insert(MapFlags::MAP_NONBLOCK);
+                        out
+                    };
+
                     let io_vec = &xfr_io_vec[i];
+
+                    // Passing NULL to mmap is to use undesignated virtual memory space for mapping.
+                    let null_p = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                     assert!(io_vec.address % 4096 == 0);
-
-                    let p0 = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
                     let page_address = io_vec.address as i64;
-                    let map_len = io_vec.offset as usize + io_vec.len as usize;
-                    println!("pfn={}, len={} bytes", page_address >> 9, map_len);
+                    // We map [0, map_end) but the actual data exists in [io_vec.offset, map_end).
+                    let map_end = io_vec.offset as usize + io_vec.len as usize;
+                    println!("map pfn={} [0,{})", page_address >> 9, map_end);
 
-                    let mut prot_flags = ProtFlags::empty();
-                    prot_flags.insert(ProtFlags::PROT_READ);
-                    prot_flags.insert(ProtFlags::PROT_WRITE);
-                    
-                    let mut map_flags = MapFlags::empty();
-                    map_flags.insert(MapFlags::MAP_SHARED);
-                    map_flags.insert(MapFlags::MAP_POPULATE);
-                    map_flags.insert(MapFlags::MAP_NONBLOCK);
-
-                    // Last argument page_offset should be a multiple of page size
-                    // This passes to xxx_mmap as vma.pg_off after 9 right shift.
-                    let p = unsafe { mmap(p0, map_len, prot_flags, map_flags, fd, page_address) }.expect("failed to mmap");
+                    // Last argument page_offset should be a multiple of page size and
+                    // is passed to in-kernel mmap as pfn by shifting 9 bits to the right.
+                    // pfn = page_address >> 9;
+                    let p =
+                        unsafe { mmap(null_p, map_end, prot_flags, map_flags, fd, page_address) }
+                            .expect("failed to mmap");
 
                     io_vecs.push(IOVec {
                         page_address: unsafe { std::mem::transmute::<*const c_void, usize>(p) },
@@ -226,15 +229,15 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 let engine = Arc::clone(&engine);
                 // tmp (BUG)
                 // tokio::spawn(async move {
-                    let req_id = req.request_id;
-                    let res = engine.call(req).await;
-                    let cmplt = AbuseCompletion {
-                        id: req_id,
-                        result: res.errorno,
-                    };
-                    unsafe { abuse_put_req(fd, &cmplt) }.expect("failed to put req");
+                let req_id = req.request_id;
+                let res = engine.call(req).await;
+                let cmplt = AbuseCompletion {
+                    id: req_id,
+                    result: res.errorno,
+                };
+                unsafe { abuse_put_req(fd, &cmplt) }.expect("failed to put req");
                 // });
-            } 
+            }
         }
     }
 }
