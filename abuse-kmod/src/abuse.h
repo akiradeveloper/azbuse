@@ -23,8 +23,8 @@ enum {
 };
 
 struct abuse_info {
-	__u64 ab_size; /* r/w */
 	__u32 ab_number; /* r/o */
+	__u64 ab_size; /* r/w */
 	__u32 ab_blocksize; /* r/w */
 };
 
