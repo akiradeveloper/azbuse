@@ -177,9 +177,13 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 }
 
                 let n = xfr.io_vec_count as usize;
-                let xfr_io_vec =
-                    unsafe { std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address) };
-                let xfr_io_vec = unsafe { std::slice::from_raw_parts(xfr_io_vec, n) };
+                let xfr_io_vec = {
+                    let out = unsafe {
+                        std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address)
+                    };
+                    let out = unsafe { std::slice::from_raw_parts(out, n) };
+                    out
+                };
 
                 let mut io_vecs = vec![];
                 for i in 0..n {
@@ -211,8 +215,9 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     // Last argument page_offset should be a multiple of page size and
                     // is passed to in-kernel mmap as pfn by shifting 9 bits to the right.
                     // pfn = page_address >> 9;
-                    let p = unsafe { mmap(null_p, map_end, prot_flags, map_flags, fd, page_address) }
-                        .expect("failed to mmap");
+                    let p =
+                        unsafe { mmap(null_p, map_end, prot_flags, map_flags, fd, page_address) }
+                            .expect("failed to mmap");
 
                     io_vecs.push(IOVec {
                         page_address: unsafe { std::mem::transmute::<*const c_void, usize>(p) },

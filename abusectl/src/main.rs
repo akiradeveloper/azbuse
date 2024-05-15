@@ -17,7 +17,7 @@ fn main() {
     use nix::sys::stat::Mode;
 
     let opts = Opts::parse();
-    
+
     let fd = open("/dev/abctl", OFlag::empty(), Mode::empty()).expect("couldn't open /dev/abctl");
     match opts {
         Opts::Add { idx } => unsafe {
