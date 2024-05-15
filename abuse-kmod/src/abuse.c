@@ -52,7 +52,6 @@ static int abuse_reset(struct abuse_device *ab)
 		return -EINVAL;
 
 	abuse_flush_pending_requests(ab);
-	ab->ab_flags = 0;
 	ab->ab_blocksize = 0;
 	ab->ab_size = 0;
 	invalidate_disk(ab->ab_disk);
@@ -63,13 +62,13 @@ static int abuse_reset(struct abuse_device *ab)
 static int __abuse_get_status(struct abuse_device *ab, struct abuse_info *info)
 {
 	memset(info, 0, sizeof(*info));
-	info->ab_size = ab->ab_size;
 	info->ab_number = ab->ab_number;
+	info->ab_size = ab->ab_size;
 	info->ab_blocksize = ab->ab_blocksize;
 	return 0;
 }
 
-static int abuse_get_status(struct abuse_device *ab, struct block_device *bdev, struct abuse_info __user *arg)
+static int abuse_get_status(struct abuse_device *ab, struct abuse_info __user *arg)
 {
 	struct abuse_info info;
 	int err = 0;
@@ -84,7 +83,7 @@ static int abuse_get_status(struct abuse_device *ab, struct block_device *bdev, 
 	return err;
 }
 
-static int __abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info *info)
+static int __abuse_set_status(struct abuse_device *ab, const struct abuse_info *info)
 {
 	sector_t size = (sector_t)(info->ab_size >> SECTOR_SHIFT);
 	loff_t blocks;
@@ -207,7 +206,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 	if (copy_to_user(arg, &xfr, sizeof(xfr)))
 		return -EFAULT;
 	BUG_ON(xfr.ab_transfer_address == 0);
-	if (copy_to_user((__user void *)xfr.ab_transfer_address, ab->ab_xfer, xfr.ab_vec_count * sizeof(ab->ab_xfer[0])))
+	if (copy_to_user((__user void *) xfr.ab_transfer_address, ab->ab_xfer, xfr.ab_vec_count * sizeof(ab->ab_xfer[0])))
 		return -EFAULT;
 
 	return 0;
@@ -455,12 +454,12 @@ static long abctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	case ABUSE_GET_STATUS:
 		mutex_lock(&abuse_ctl_mutex);
-		err = abuse_get_status(ab, ab->ab_device, (struct abuse_info __user *) arg);
+		err = abuse_get_status(ab, (struct abuse_info __user *) arg);
 		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_SET_STATUS:
 		mutex_lock(&abuse_ctl_mutex);
-		err = abuse_set_status(ab, ab->ab_device, (struct abuse_info __user *) arg);
+		err = abuse_set_status(ab, (struct abuse_info __user *) arg);
 		mutex_unlock(&abuse_ctl_mutex);
 		break;
 	case ABUSE_RESET:

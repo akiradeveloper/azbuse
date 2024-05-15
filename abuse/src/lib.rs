@@ -28,8 +28,8 @@ bitflags! {
 #[repr(C)]
 #[derive(Default, Debug)]
 pub struct AbuseInfo {
-    size: u64,
     number: u32,
+    size: u64,
     blocksize: u32,
 }
 
