@@ -37,16 +37,16 @@ jobs:
       - name: Install abusectl
         run: sudo cargo install --path abusectl --root /usr/local
 
-      - name: Add /dev/abuse0
+      - name: Add /dev/abuse1
         run: |
-          sudo abusectl add 0 
+          sudo abusectl add 1 
           ls /dev
           lsblk
 
-      - name: Connect /dev/abuse0 and ramdisk
+      - name: Connect /dev/abuse1 and ramdisk
         run: |
           sudo cargo build -p abuse-ramdisk --release
-          sudo target/release/abuse-ramdisk 0 &
+          sudo target/release/abuse-ramdisk 1 &
           sleep 1
           lsblk
 
