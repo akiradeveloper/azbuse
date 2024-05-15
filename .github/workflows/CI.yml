@@ -40,7 +40,10 @@ jobs:
       - name: Add /dev/abuse1
         run: |
           sudo abusectl add 1 
-          ls /dev
+          lsblk
+          sudo abusectl remove 1
+          lsblk
+          sudo abusectl add 1
           lsblk
 
       - name: Connect /dev/abuse1 and ramdisk
