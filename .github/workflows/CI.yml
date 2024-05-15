@@ -48,6 +48,7 @@ jobs:
           sudo cargo build -p abuse-ramdisk --release
           sudo target/release/abuse-ramdisk 0 &
           sleep 1
+          lsblk
 
       - name: Logical test (badblocks)
         run: sudo badblocks -wsv /dev/abuse0
