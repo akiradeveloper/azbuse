@@ -330,8 +330,6 @@ static struct block_device_operations ab_fops = {
 static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
 			      unsigned int hctx_idx, unsigned int numa_node)
 {
-	printk("init request");
-
 	struct ab_req *req = blk_mq_rq_to_pdu(rq);
 
 	INIT_LIST_HEAD(&req->list);
@@ -341,8 +339,6 @@ static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
 
 static blk_status_t abuse_queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_queue_data *bd)
 {
-	printk("queue request");
-
 	struct ab_req *req = blk_mq_rq_to_pdu(bd->rq);
 	struct abuse_device *ab = req->rq->q->queuedata;
 
