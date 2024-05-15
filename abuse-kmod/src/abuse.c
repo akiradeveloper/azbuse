@@ -97,8 +97,6 @@ static int __abuse_set_status(struct abuse_device *ab, const struct abuse_info *
 	if (unlikely(info->ab_blocksize * blocks != info->ab_size))
 		return -EINVAL;
 
-	__module_get(THIS_MODULE);
-
 	set_disk_ro(ab->ab_disk, 0);
 
 	set_capacity(ab->ab_disk, size);
@@ -108,15 +106,17 @@ static int __abuse_set_status(struct abuse_device *ab, const struct abuse_info *
 	blk_queue_physical_block_size(ab->ab_queue, ab->ab_blocksize);
 	ab->ab_blocksize = info->ab_blocksize;
 
+	__module_get(THIS_MODULE);
+
 	return 0;
 }
 
-static int abuse_set_status(struct abuse_device *ab, struct block_device *bdev, const struct abuse_info __user *arg)
+static int abuse_set_status(struct abuse_device *ab, const struct abuse_info __user *arg)
 {
 	struct abuse_info info;
 	if (copy_from_user(&info, arg, sizeof (struct abuse_info)))
 		return -EFAULT;
-	return __abuse_set_status(ab, bdev, &info);
+	return __abuse_set_status(ab, &info);
 }
 
 static unsigned xfr_command_from_cmd_flags(unsigned cmd_flags) {
@@ -513,7 +513,6 @@ static struct miscdevice abuse_misc = {
 static int __init abuse_init(void)
 {
 	int err;
-	unsigned long range;
 
 	err = misc_register(&abuse_misc);
 	if (err < 0)
