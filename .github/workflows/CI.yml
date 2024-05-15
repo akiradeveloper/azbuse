@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: cargo dkms
+          packages: cargo dkms ruby
           version: 1.0
 
       - name: Build module
@@ -55,6 +55,9 @@ jobs:
 
       - name: Logical test (badblocks)
         run: sudo badblocks -wsv /dev/abuse1
+
+      - name: Performance test
+        run: sudo ruby perf.rb /dev/abuse1
 
       - name: Cat make.log
         run: |
