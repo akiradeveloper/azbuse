@@ -55,6 +55,6 @@ jobs:
 
       - name: Cat make.log
         run: |
-          sudo cat -q /var/lib/dkms/abuse/1.0.0/build/make.log
-          sudo cat -q abuse.log
+          sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log || true
+          sudo cat abuse.log || true
         if: ${{ failure() }}
