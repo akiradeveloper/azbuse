@@ -55,6 +55,7 @@ jobs:
 
       - name: Cat make.log
         run: |
+          sudo dmesg
           sudo cat abuse.log
           sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
         if: ${{ failure() }}
