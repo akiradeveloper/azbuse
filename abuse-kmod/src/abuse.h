@@ -1,6 +1,3 @@
-#ifndef _LINUX_ABUSE_H
-#define _LINUX_ABUSE_H
-
 /*
  * include/linux/abuse.h
  *
@@ -11,11 +8,19 @@
  * Redistribution of this file is permitted under the GNU General Public License.
  */
 
+#ifndef _LINUX_ABUSE_H
+#define _LINUX_ABUSE_H
+
+#include <linux/bio.h>
+#include <linux/blkdev.h>
+#include <linux/blk-mq.h>
+#include <linux/spinlock.h>
+#include <linux/mutex.h>
+#include <linux/types.h> /* for __u64 */
+
 enum {
 	ABUSE_FLAGS_READ_ONLY	= 1,
 };
-
-#include <linux/types.h> /* for __u64 */
 
 struct abuse_info {
 	__u64 ab_size; /* r/w */
@@ -67,15 +72,8 @@ struct abuse_completion {
 	__u32 ab_errno;
 };
 
-#define ABUSE_MAJOR    60
-#define ABUSECTL_MAJOR   61
-
-#ifdef __KERNEL__
-#include <linux/bio.h>
-#include <linux/blkdev.h>
-#include <linux/blk-mq.h>
-#include <linux/spinlock.h>
-#include <linux/mutex.h>
+#define ABUSE_MAJOR 60
+#define ABUSECTL_MAJOR 61
 
 struct abuse_device {
 	int ab_number;
@@ -98,7 +96,5 @@ struct ab_req {
 	struct request *rq;
 	struct list_head list;
 };
-
-#endif /* __KERNEL__ */
 
 #endif

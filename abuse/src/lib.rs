@@ -64,9 +64,6 @@ const ABUSE_SET_STATUS: u16 = 0x4121;
 const ABUSE_RESET: u16 = 0x4122;
 const ABUSE_GET_REQ: u16 = 0x4123;
 const ABUSE_PUT_REQ: u16 = 0x4124;
-
-const ABUSE_CTL_ADD: u16 = 0x4186;
-const ABUSE_CTL_REMOVE: u16 = 0x4187;
 const ABUSE_CONNECT: u16 = 0x4188;
 
 nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
