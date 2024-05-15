@@ -115,8 +115,7 @@ pub trait StorageEngine: Send + Sync + 'static {
     async fn call(&self, req: Request) -> Response;
 }
 
-// This could be BIO_MAX_VECS = 256 (in 5.10)
-const MAX_QUEUE: usize = 1 << 16;
+const BIO_MAX_VECS: usize = 256;
 
 pub struct Config {
     pub dev_number: u16,
@@ -143,7 +142,6 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     // size must be some multiple of blocksize
     info.size = config.dev_size;
     info.blocksize = 4096;
-    info.max_queue = MAX_QUEUE as u32;
     unsafe { abuse_set_status(fd, &info) }.expect("couldn't set info");
 
     let mut poll = Poll::new().unwrap();
@@ -153,7 +151,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         .expect("failed to set up poll");
     let mut events = Events::with_capacity(1);
 
-    let iovec = [AbuseXfrIoVec::default(); MAX_QUEUE];
+    let iovec = [AbuseXfrIoVec::default(); BIO_MAX_VECS];
     let io_vec_address: u64 =
         unsafe { std::mem::transmute::<*const AbuseXfrIoVec, u64>(iovec.as_ptr()) };
     let mut xfr = AbuseXfr {
