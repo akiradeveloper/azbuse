@@ -102,8 +102,8 @@ static int __abuse_set_status(struct abuse_device *ab, const struct abuse_info *
 	set_capacity(ab->ab_disk, size);
 	ab->ab_size = info->ab_size;
 
-	blk_queue_logical_block_size(ab->ab_queue, ab->ab_blocksize);
-	blk_queue_physical_block_size(ab->ab_queue, ab->ab_blocksize);
+	blk_queue_logical_block_size(ab->ab_queue, info->ab_blocksize);
+	blk_queue_physical_block_size(ab->ab_queue, info->ab_blocksize);
 	ab->ab_blocksize = info->ab_blocksize;
 
 	__module_get(THIS_MODULE);
@@ -331,7 +331,7 @@ static int abuse_init_request(struct blk_mq_tag_set *set, struct request *rq,
 			      unsigned int hctx_idx, unsigned int numa_node)
 {
 	printk("init request");
-	
+
 	struct ab_req *req = blk_mq_rq_to_pdu(rq);
 
 	INIT_LIST_HEAD(&req->list);
