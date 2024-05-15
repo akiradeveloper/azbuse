@@ -41,6 +41,7 @@ jobs:
         run: |
           sudo abusectl add 0 
           ls /dev
+          lsblk
 
       - name: Connect /dev/abuse0 and ramdisk
         run: |
