@@ -18,15 +18,9 @@ enum {
 #include <linux/types.h> /* for __u64 */
 
 struct abuse_info {
-	__u64 ab_device; /* r/o */
 	__u64 ab_size; /* r/w */
 	__u32 ab_number; /* r/o */
-	__u32 ab_flags; /* r/w */
 	__u32 ab_blocksize; /* r/w */
-	__u32 ab_max_queue; /* r/w */
-	__u32 ab_queue_size; /* r/o */
-	__u32 ab_errors; /* r/o */
-	__u32 ab_max_vecs; /* r/o */
 };
 
 #define ABUSE_GET_STATUS 0x4120
@@ -85,21 +79,11 @@ struct abuse_completion {
 
 struct abuse_device {
 	int ab_number;
-	int	ab_refcnt;
 	loff_t ab_size;
-	int	ab_flags;
-	int	ab_queue_size;
-	int	ab_max_queue;
-	int	ab_errors;
-
-	struct block_device *ab_device;
 	unsigned ab_blocksize;
-
-	gfp_t old_gfp_mask;
 
 	spinlock_t ab_lock;
 	struct list_head ab_reqlist;
-	struct mutex ab_ctl_mutex;
 	wait_queue_head_t ab_event;
 
 	struct request_queue *ab_queue;

@@ -28,15 +28,9 @@ bitflags! {
 #[repr(C)]
 #[derive(Default, Debug)]
 pub struct AbuseInfo {
-    device: u64,
     size: u64,
     number: u32,
-    flags: u32,
     blocksize: u32,
-    max_queue: u32,
-    queue_size: u32,
-    errors: u32,
-    max_vecs: u32,
 }
 
 #[repr(C)]
