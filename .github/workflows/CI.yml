@@ -57,7 +57,7 @@ jobs:
         run: sudo badblocks -wsv /dev/abuse1
 
       - name: Performance test
-        run: sudo ruby perf.rb /dev/abuse1
+        run: sudo ruby tests/perf.rb /dev/abuse1
 
       - name: Error log
         run: |
