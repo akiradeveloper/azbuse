@@ -199,7 +199,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 			i++;
 		}
 		xfr.ab_vec_count = i;
-		ab->xfer_count = i;
+		ab->ab_xfer_count = i;
 	} else {
 		spin_unlock_irq(&ab->ab_lock);
 		return -ENOMSG;
