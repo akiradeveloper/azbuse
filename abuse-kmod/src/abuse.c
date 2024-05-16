@@ -310,7 +310,7 @@ static int abctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct abuse_device *ab = filp->private_data;
 	int i;
-	int n = ab->ab_vec_count;
+	int n = ab->ab_xfer_count;
 	int err = 0;
 	unsigned long cur = vma->vm_start;
 	for (i=0; i<n; i++) {
