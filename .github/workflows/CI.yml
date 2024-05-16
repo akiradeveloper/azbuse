@@ -59,9 +59,20 @@ jobs:
       - name: Performance test
         run: sudo ruby perf.rb /dev/abuse1
 
-      - name: Cat make.log
+      - name: Error log
         run: |
           sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
-          sudo dmesg
-          sudo cat abuse.log
         if: ${{ failure() }}
+
+      - name: App Log
+        run: |
+          sudo cat abuse.log
+        if: ${{ always() }}
+      
+      - name: kernel Log
+        run: |
+          sudo dmesg
+        if: ${{ always() }}
+
+
+        
