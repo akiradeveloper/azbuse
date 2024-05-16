@@ -25,16 +25,16 @@ async fn main() {
 }
 
 struct Engine {
-    mem: Arc<RwLock<MemBuffer>>,
+    mem: MemBuffer,
 }
 #[async_trait]
 impl StorageEngine for Engine {
-    async fn call(&self, req: Request) -> Response {
+    async fn call(&mut self, req: Request) -> Response {
         let id = req.request_id;
         let req_op = req.cmd_flags & CmdFlags::OP_MASK;
         match req_op {
             CmdFlags::OP_WRITE => {
-                let mut m = self.mem.write().await;
+                let mut m = self.mem;
                 m.write(req.start as usize, &req.io_vecs);
                 Response {
                     request_id: id,
@@ -42,7 +42,7 @@ impl StorageEngine for Engine {
                 }
             }
             CmdFlags::OP_READ => {
-                let m = self.mem.read().await;
+                let m = self.mem;
                 m.read(req.start as usize, &req.io_vecs);
                 Response {
                     request_id: id,
