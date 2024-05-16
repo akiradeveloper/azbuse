@@ -4,6 +4,8 @@ use core::ffi::c_void;
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
 use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
+use std::os::fd::OwnedFd;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 const PAGE_SHIFT: usize = 12;
 
@@ -149,24 +151,27 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     use nix::sys::stat::Mode;
 
     let fd = open("/dev/abctl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/abctl");
+    let fd = unsafe { OwnedFd::from_raw_fd(fd) };
+
     let devfd = {
         let devpath = format!("/dev/abuse{}", config.dev_number);
         open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device")
     };
+    let devfd = unsafe { OwnedFd::from_raw_fd(devfd) };
 
     // This attaches struct ab_device to ctlfd->private_data
-    unsafe { abuse_connect(fd, devfd) }.expect("couldn't acquire abuse device");
+    unsafe { abuse_connect(fd.as_raw_fd(), devfd.as_raw_fd()) }.expect("couldn't acquire abuse device");
     let mut info = AbuseInfo::default();
-    unsafe { abuse_get_status(fd, &mut info) }.expect("couldn't get info");
+    unsafe { abuse_get_status(fd.as_raw_fd(), &mut info) }.expect("couldn't get info");
     dbg!(&info);
-    unsafe { abuse_reset(fd) }.expect("couldn't reset device");
+    unsafe { abuse_reset(fd.as_raw_fd()) }.expect("couldn't reset device");
     // size must be some multiple of blocksize
     info.size = config.dev_size;
     info.blocksize = 4096;
-    unsafe { abuse_set_status(fd, &info) }.expect("couldn't set info");
+    unsafe { abuse_set_status(fd.as_raw_fd(), &info) }.expect("couldn't set info");
 
     let mut poll = Poll::new().unwrap();
-    let mut source = SourceFd(&fd);
+    let mut source = SourceFd(&fd.as_raw_fd());
     poll.registry()
         .register(&mut source, Token(0), Interest::READABLE)
         .expect("failed to set up poll");
@@ -182,7 +187,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let request_handler = RequestHandler {
-        fd,
+        fd: fd.as_raw_fd(),
         rx,
         engine,
     };
@@ -194,7 +199,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         poll.poll(&mut events, None).expect("failed to poll");
         'poll: for ev in &events {
             loop {
-                if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
+                if let Err(e) = unsafe { abuse_get_req(fd.as_raw_fd(), &mut xfr) } {
                     break 'poll;
                 }
 
