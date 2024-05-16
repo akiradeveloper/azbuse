@@ -8,6 +8,7 @@ use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
 const PAGE_SHIFT: usize = 12;
 
 bitflags! {
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     pub struct CmdFlags: u32 {
         const OP_MASK = (1<<8) - 1;
         const OP_UNKNOWN = 0;
