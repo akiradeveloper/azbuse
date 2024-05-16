@@ -214,12 +214,8 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 
 static struct ab_req *abuse_find_req(struct abuse_device *ab, __u64 id)
 {
-	struct ab_req *req = NULL;
-	list_for_each_entry(req, &ab->ab_reqlist, list) {
-		if ((__u64)req == id)
-			return req;
-	}
-	return NULL;
+	struct ab_req *req = id;
+	return req;
 }
 
 // Complete a request 
