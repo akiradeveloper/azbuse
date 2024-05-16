@@ -182,7 +182,7 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 		struct bio_vec bvec;
 		int i = 0;
 
-		list_move_tail(&req->list, &ab->ab_reqlist);
+		list_del(&req->list);
 		spin_unlock_irq(&ab->ab_lock);
 
 		// Use the pointer address as the unique id of the request
@@ -216,12 +216,8 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 
 static struct ab_req *abuse_find_req(struct abuse_device *ab, __u64 id)
 {
-	struct ab_req *req = NULL;
-	list_for_each_entry(req, &ab->ab_reqlist, list) {
-		if ((__u64)req == id)
-			return req;
-	}
-	return NULL;
+	struct ab_req *req = id;
+	return req;
 }
 
 // Complete a request 
@@ -238,17 +234,7 @@ static int abuse_put_req(struct abuse_device *ab, struct abuse_completion __user
 	if (copy_from_user(&xfr, arg, sizeof (struct abuse_completion)))
 		return -EFAULT;
 
-	// Find the request to complete
-	spin_lock_irq(&ab->ab_lock);
 	req = abuse_find_req(ab, xfr.ab_id);
-	if (req) {
-		list_del(&req->list);
-		spin_unlock_irq(&ab->ab_lock);
-	} else {
-		spin_unlock_irq(&ab->ab_lock);
-		return -ENOMSG;
-	}
-
 	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.ab_errno));
 	return 0;
 }
