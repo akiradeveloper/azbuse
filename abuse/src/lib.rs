@@ -4,7 +4,6 @@ use core::ffi::c_void;
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
 use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
-use std::sync::Arc;
 
 const PAGE_SHIFT: usize = 12;
 
@@ -115,6 +114,28 @@ pub trait StorageEngine: Send + Sync + 'static {
     async fn call(&self, req: Request) -> Response;
 }
 
+struct RequestHandler<Engine: StorageEngine> {
+    fd: i32,
+    rx: tokio::sync::mpsc::UnboundedReceiver<Request>,
+    engine: Engine,
+}
+impl <Engine: StorageEngine> RequestHandler<Engine> {
+    async fn run_once(&self, req: Request) {
+        let req_id = req.request_id;
+        let res = self.engine.call(req).await;
+        let cmplt = AbuseCompletion {
+            id: req_id,
+            result: res.errorno,
+        };
+        unsafe { abuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
+    }
+    async fn run(mut self) {
+        while let Some(req) = self.rx.recv().await {
+            self.run_once(req).await
+        }
+    }
+}
+
 const BIO_MAX_VECS: usize = 256;
 
 pub struct Config {
@@ -126,7 +147,6 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     use nix::fcntl::{open, OFlag};
     use nix::sys::stat::Mode;
 
-    let engine = Arc::new(engine);
     let fd = open("/dev/abctl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/abctl");
     let devfd = {
         let devpath = format!("/dev/abuse{}", config.dev_number);
@@ -158,6 +178,15 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         io_vec_address,
         ..AbuseXfr::default()
     };
+
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let request_handler = RequestHandler {
+        fd,
+        rx,
+        engine,
+    };
+    tokio::spawn(request_handler.run());
+    
     loop {
         // When there are some requests in the in-kernel queue, this returns events including Token(0).
         // Then the internal loop consumes all requests in the queue.
@@ -221,17 +250,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     len: xfr.len,
                     request_id: xfr.id,
                 };
-                let engine = Arc::clone(&engine);
-                // tmp (BUG)
-                // tokio::spawn(async move {
-                let req_id = req.request_id;
-                let res = engine.call(req).await;
-                let cmplt = AbuseCompletion {
-                    id: req_id,
-                    result: res.errorno,
-                };
-                unsafe { abuse_put_req(fd, &cmplt) }.expect("failed to put req");
-                // });
+                tx.send(req).unwrap();
             }
         }
     }
