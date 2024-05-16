@@ -4,3 +4,8 @@ members = [
     "abusectl",
     "tests/abuse-ramdisk",
 ]
+
+[workspace.dependencies]
+bitflags = "2.5"
+mio = "0.8"
+nix = "0.19"
