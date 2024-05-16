@@ -64,25 +64,27 @@ impl MemBuffer {
         Self { buf: vec![0; n] }
     }
     fn write(&mut self, offset: usize, io_vecs: &[IOVec]) {
-        let mut offset = offset;
-        let dst = self.buf[offset..].as_ptr();
-        let dst = unsafe { std::mem::transmute::<*const u8, *mut c_void>(dst) };
+        let mut cur = offset;
 
         for io_vec in io_vecs {
-            let n = io_vec.len();
-            unsafe { io_vec.start().copy_to_nonoverlapping(dst, n) };
-            offset += n;
+            let dst = self.buf[cur..].as_ptr();
+            let dst = unsafe { std::mem::transmute::<*const u8, *mut c_void>(dst) };
+
+            let len = io_vec.len();
+            unsafe { io_vec.start().copy_to_nonoverlapping(dst, len) };
+            cur += len;
         }
     }
     fn read(&self, offset: usize, io_vecs: &[IOVec]) {
-        let mut offset = offset;
-        let src = self.buf[offset..].as_ptr();
-        let src = unsafe { std::mem::transmute::<*const u8, *mut c_void>(src) };
+        let mut cur = offset;
 
         for io_vec in io_vecs {
-            let n = io_vec.len();
-            unsafe { io_vec.start().copy_from_nonoverlapping(src, n) };
-            offset += n;
+            let src = self.buf[cur..].as_ptr();
+            let src = unsafe { std::mem::transmute::<*const u8, *mut c_void>(src) };
+
+            let len = io_vec.len();
+            unsafe { io_vec.start().copy_from_nonoverlapping(src, len) };
+            cur += len;
         }
     }
 }

@@ -6,6 +6,8 @@ use mio::{Events, Interest, Poll, Token};
 use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
 use std::sync::Arc;
 
+const PAGE_SHIFT: usize = 12;
+
 bitflags! {
     pub struct CmdFlags: u32 {
         const OP_MASK = (1<<8) - 1;
@@ -48,6 +50,7 @@ pub struct AbuseXfr {
 #[derive(Default, Clone, Copy)]
 struct AbuseXfrIoVec {
     address: u64,
+    n_pages: u32,
     offset: u32,
     len: u32,
 }
@@ -198,13 +201,13 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     assert!(io_vec.address % 4096 == 0);
                     let page_address = io_vec.address as i64;
                     // We map [0, map_end) but the actual data exists in [io_vec.offset, map_end).
-                    let map_end = io_vec.offset as usize + io_vec.len as usize;
+                    let map_end = io_vec.n_pages << PAGE_SHIFT;
 
                     // Last argument page_offset should be a multiple of page size and
                     // is passed to in-kernel mmap as pfn by shifting 9 bits to the right.
                     // pfn = page_address >> 9;
                     let p =
-                        unsafe { mmap(null_p, map_end, prot_flags, map_flags, fd, page_address) }
+                        unsafe { mmap(null_p, map_end as usize, prot_flags, map_flags, fd, page_address) }
                             .expect("failed to mmap");
 
                     io_vecs.push(IOVec {
