@@ -190,14 +190,16 @@ static int abuse_get_req(struct abuse_device *ab, struct abuse_xfr_hdr __user *a
 		xfr.ab_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
 		xfr.ab_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
 		xfr.ab_len = blk_rq_bytes(req->rq);
-		rq_for_each_segment(bvec, req->rq, iter) {
+		rq_for_each_bvec(bvec, req->rq, iter) {
 			// physical address of the page
 			ab->ab_xfer[i].ab_address = (__u64)page_to_phys(bvec.bv_page);
+			ab->ab_xfer[i].n_pages = ((bvec.bv_offset + bvec.bv_len) + (4096-1)) / 4096;
 			ab->ab_xfer[i].ab_offset = bvec.bv_offset;
 			ab->ab_xfer[i].ab_len = bvec.bv_len;
-			++i;
+			i++;
 		}
 		xfr.ab_vec_count = i;
+		ab->ab_xfer_count = i;
 	} else {
 		spin_unlock_irq(&ab->ab_lock);
 		return -ENOMSG;

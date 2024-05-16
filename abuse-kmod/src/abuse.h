@@ -40,6 +40,7 @@ struct abuse_info {
 
 struct abuse_vec {
 	__u64 ab_address;
+	__u32 n_pages;
 	__u32 ab_offset;
 	__u32 ab_len;
 };
@@ -89,6 +90,7 @@ struct abuse_device {
 	struct gendisk *ab_disk;
 
 	/* user xfer area */
+	int ab_xfer_count;
 	struct abuse_vec ab_xfer[BIO_MAX_VECS];
 };
 
