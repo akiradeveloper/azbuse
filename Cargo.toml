@@ -8,4 +8,4 @@ members = [
 [workspace.dependencies]
 bitflags = "2.5"
 mio = "0.8"
-nix = "0.19"
+nix = "0.28"
