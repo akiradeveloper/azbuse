@@ -130,7 +130,9 @@ impl <Engine: StorageEngine> RequestHandler<Engine> {
         unsafe { abuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
     }
     async fn run(mut self) {
+        dbg!("request handler: run");
         while let Some(req) = self.rx.recv().await {
+            dbg!("got request");
             self.run_once(req).await
         }
     }
@@ -196,6 +198,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
                     break 'poll;
                 }
+                dbg!("got request from kernel");
 
                 let n = xfr.io_vec_count as usize;
                 let xfr_io_vec = {
@@ -251,6 +254,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     request_id: xfr.id,
                 };
                 tx.send(req).unwrap();
+                dbg!("sent request to engine");
             }
         }
     }
