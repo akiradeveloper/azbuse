@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-nix = { workspace = true }
+nix = { workspace = true, features = ["fs", "ioctl"] }
