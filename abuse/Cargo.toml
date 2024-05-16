@@ -10,5 +10,5 @@ edition = "2018"
 bitflags = { workspace = true }
 tokio = { version = "1.0", features = ["net", "sync", "io-util", "rt"] }
 async-trait = "0.1"
-nix = { workspace = true, features = ["ioctl"] }
+nix = { workspace = true, features = ["ioctl", "mman"] }
 mio = { workspace = true, features = ["os-poll", "os-ext"] }
