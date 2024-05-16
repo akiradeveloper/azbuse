@@ -306,11 +306,20 @@ static unsigned int abctl_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
-static int abctl_mmap(struct file *filp,  struct vm_area_struct *vma)
+static int abctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	unsigned long size = vma->vm_end - vma->vm_start;
-	unsigned long pfn = vma->vm_pgoff;
-	return remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
+	struct abuse_device *ab = filp->private_data;
+	int i;
+	int n = ab->ab_xfer_count;
+	int err = 0;
+	unsigned long cur = vma->vm_start;
+	for (i=0; i<n; i++) {
+		unsigned long pfn = ab->ab_xfer[i].ab_address >> PAGE_SHIFT;
+		unsigned long len = ab->ab_xfer[i].n_pages << PAGE_SHIFT;
+		err |= remap_pfn_range(vma, cur, pfn, len, vma->vm_page_prot);
+		cur += len;
+	}
+	return err;
 }
 
 static struct block_device_operations ab_fops = {
