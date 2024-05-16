@@ -111,7 +111,7 @@ pub struct Response {
 
 #[async_trait]
 pub trait StorageEngine: Send + Sync + 'static {
-    async fn call(&self, req: Request) -> Response;
+    async fn call(&mut self, req: Request) -> Response;
 }
 
 struct RequestHandler<Engine: StorageEngine> {
@@ -120,7 +120,7 @@ struct RequestHandler<Engine: StorageEngine> {
     engine: Engine,
 }
 impl <Engine: StorageEngine> RequestHandler<Engine> {
-    async fn run_once(&self, req: Request) {
+    async fn run_once(&mut self, req: Request) {
         let req_id = req.request_id;
         let res = self.engine.call(req).await;
         let cmplt = AbuseCompletion {

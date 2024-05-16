@@ -2,8 +2,6 @@ use abuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
 use async_trait::async_trait;
 use clap::Parser;
 use core::ffi::c_void;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[derive(Parser)]
 struct Opts {
@@ -19,22 +17,22 @@ async fn main() {
         dev_size: sz as u64,
     };
     let engine = Engine {
-        mem: Arc::new(RwLock::new(MemBuffer::new(sz))),
+        mem: MemBuffer::new(sz),
     };
     abuse::run_on(config, engine).await;
 }
 
 struct Engine {
-    mem: Arc<RwLock<MemBuffer>>,
+    mem: MemBuffer,
 }
 #[async_trait]
 impl StorageEngine for Engine {
-    async fn call(&self, req: Request) -> Response {
+    async fn call(&mut self, req: Request) -> Response {
         let id = req.request_id;
         let req_op = req.cmd_flags & CmdFlags::OP_MASK;
         match req_op {
             CmdFlags::OP_WRITE => {
-                let mut m = self.mem.write().await;
+                let m = &mut self.mem;
                 m.write(req.start as usize, &req.io_vecs);
                 Response {
                     request_id: id,
@@ -42,7 +40,7 @@ impl StorageEngine for Engine {
                 }
             }
             CmdFlags::OP_READ => {
-                let m = self.mem.read().await;
+                let m = &self.mem;
                 m.read(req.start as usize, &req.io_vecs);
                 Response {
                     request_id: id,
