@@ -32,7 +32,7 @@ impl StorageEngine for Engine {
         let req_op = req.cmd_flags & CmdFlags::OP_MASK;
         match req_op {
             CmdFlags::OP_WRITE => {
-                let mut m = self.mem;
+                let m = &mut self.mem;
                 m.write(req.start as usize, &req.io_vecs);
                 Response {
                     request_id: id,
@@ -40,7 +40,7 @@ impl StorageEngine for Engine {
                 }
             }
             CmdFlags::OP_READ => {
-                let m = self.mem;
+                let m = &self.mem;
                 m.read(req.start as usize, &req.io_vecs);
                 Response {
                     request_id: id,
