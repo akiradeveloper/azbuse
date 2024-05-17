@@ -116,7 +116,7 @@ static int azbuse_set_status(struct azbuse_device *azb, const struct azbuse_info
 	struct azbuse_info info;
 	if (copy_from_user(&info, arg, sizeof (struct azbuse_info)))
 		return -EFAULT;
-	return __azbuse_set_status(ab, &info);
+	return __azbuse_set_status(azb, &info);
 }
 
 static unsigned xfr_command_from_cmd_flags(unsigned cmd_flags) {
@@ -234,7 +234,7 @@ static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __
 	if (copy_from_user(&xfr, arg, sizeof (struct azbuse_completion)))
 		return -EFAULT;
 
-	req = azbuse_find_req(ab, xfr.azb_id);
+	req = azbuse_find_req(azb, xfr.azb_id);
 	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.azb_errno));
 	return 0;
 }
@@ -284,7 +284,7 @@ static unsigned int azbusectl_poll(struct file *filp, poll_table *wait)
 	struct azbuse_device *azb = filp->private_data;
 	unsigned int mask;
 
-	if (ab == NULL)
+	if (azb == NULL)
 		return -ENODEV;
 
 	poll_wait(filp, &azb->azb_event, wait);
@@ -354,11 +354,11 @@ static struct azbuse_device *azbuse_add(int i)
 		goto out;
 
 	if (i >= 0) {
-		err = idr_alloc(&azbuse_index_idr, ab, i, i + 1, GFP_KERNEL);
+		err = idr_alloc(&azbuse_index_idr, azb, i, i + 1, GFP_KERNEL);
 		if (err == -ENOSPC)
 			err = -EEXIST;
 	} else {
-		err = idr_alloc(&azbuse_index_idr, ab, 0, 0, GFP_KERNEL);
+		err = idr_alloc(&azbuse_index_idr, azb, 0, 0, GFP_KERNEL);
 	}
 	if (err < 0)
 		goto out_free_dev;
@@ -439,12 +439,12 @@ static long azbusectl_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 		break;
 	case AZBUSE_GET_STATUS:
 		mutex_lock(&azbuse_ctl_mutex);
-		err = azbuse_get_status(ab, (struct azbuse_info __user *) arg);
+		err = azbuse_get_status(azb, (struct azbuse_info __user *) arg);
 		mutex_unlock(&azbuse_ctl_mutex);
 		break;
 	case AZBUSE_SET_STATUS:
 		mutex_lock(&azbuse_ctl_mutex);
-		err = azbuse_set_status(ab, (struct azbuse_info __user *) arg);
+		err = azbuse_set_status(azb, (struct azbuse_info __user *) arg);
 		mutex_unlock(&azbuse_ctl_mutex);
 		break;
 	case AZBUSE_RESET:
