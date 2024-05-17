@@ -380,7 +380,7 @@ static struct azbuse_device *azbuse_add(int i)
 	if (!disk)
 		goto out_cleanup_tags;
 	azb->azb_queue = disk->queue;
-	azb->azb_queue->queuedata = ab;
+	azb->azb_queue->queuedata = azb;
 	blk_queue_flag_set(QUEUE_FLAG_NONROT, azb->azb_queue);
 
 	disk->major	= AZBUSE_MAJOR;
