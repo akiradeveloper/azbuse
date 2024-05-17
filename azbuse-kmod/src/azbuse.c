@@ -257,7 +257,7 @@ static int azbuse_connect(struct file *ctl, unsigned long arg)
 	if (!azb)
 		return -ENODEV;
 
-	ctl->private_data = ab;
+	ctl->private_data = azb;
 
 	return 0;
 }
@@ -372,7 +372,7 @@ static struct azbuse_device *azbuse_add(int i)
 	azb->tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
 	azb->tag_set.driver_data = azb;
 
-	err = blk_mq_alloc_tag_set(&ab->tag_set);
+	err = blk_mq_alloc_tag_set(&azb->tag_set);
 	if (err)
 		goto out_free_idr;
 
