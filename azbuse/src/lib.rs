@@ -30,7 +30,7 @@ bitflags! {
 
 #[repr(C)]
 #[derive(Default, Debug)]
-pub struct AbuseInfo {
+pub struct AzbuseInfo {
     number: u32,
     size: u64,
     blocksize: u32,
@@ -38,7 +38,7 @@ pub struct AbuseInfo {
 
 #[repr(C)]
 #[derive(Default)]
-pub struct AbuseXfr {
+pub struct AzbuseXfr {
     id: u64,
     offset: u64,
     len: u64,
@@ -49,7 +49,7 @@ pub struct AbuseXfr {
 
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
-struct AbuseXfrIoVec {
+struct AzbuseXfrIoVec {
     address: u64,
     n_pages: u32,
     offset: u32,
@@ -58,24 +58,24 @@ struct AbuseXfrIoVec {
 
 #[repr(C)]
 #[derive(Default)]
-pub struct AbuseCompletion {
+pub struct AzbuseCompletion {
     id: u64,
     result: i32,
 }
 
-const ABUSE_GET_STATUS: u16 = 0x4120;
-const ABUSE_SET_STATUS: u16 = 0x4121;
-const ABUSE_RESET: u16 = 0x4122;
-const ABUSE_GET_REQ: u16 = 0x4123;
-const ABUSE_PUT_REQ: u16 = 0x4124;
-const ABUSE_CONNECT: u16 = 0x4188;
+const AZBUSE_GET_STATUS: u16 = 0x4120;
+const AZBUSE_SET_STATUS: u16 = 0x4121;
+const AZBUSE_RESET: u16 = 0x4122;
+const AZBUSE_GET_REQ: u16 = 0x4123;
+const AZBUSE_PUT_REQ: u16 = 0x4124;
+const AZBUSE_CONNECT: u16 = 0x4188;
 
-nix::ioctl_read_bad!(abuse_get_status, ABUSE_GET_STATUS, AbuseInfo);
-nix::ioctl_write_ptr_bad!(abuse_set_status, ABUSE_SET_STATUS, AbuseInfo);
-nix::ioctl_none_bad!(abuse_reset, ABUSE_RESET);
-nix::ioctl_read_bad!(abuse_get_req, ABUSE_GET_REQ, AbuseXfr);
-nix::ioctl_write_ptr_bad!(abuse_put_req, ABUSE_PUT_REQ, AbuseCompletion);
-nix::ioctl_write_int_bad!(abuse_connect, ABUSE_CONNECT);
+nix::ioctl_read_bad!(azbuse_get_status, AZBUSE_GET_STATUS, AzbuseInfo);
+nix::ioctl_write_ptr_bad!(azbuse_set_status, AZBUSE_SET_STATUS, AzbuseInfo);
+nix::ioctl_none_bad!(azbuse_reset, AZBUSE_RESET);
+nix::ioctl_read_bad!(azbuse_get_req, AZBUSE_GET_REQ, AzbuseXfr);
+nix::ioctl_write_ptr_bad!(azbuse_put_req, AZBUSE_PUT_REQ, AzbuseCompletion);
+nix::ioctl_write_int_bad!(azbuse_connect, AZBUSE_CONNECT);
 
 pub struct IOVec {
     page_address: usize,
@@ -125,11 +125,11 @@ impl <Engine: StorageEngine> RequestHandler<Engine> {
     async fn run_once(&mut self, req: Request) {
         let req_id = req.request_id;
         let res = self.engine.call(req).await;
-        let cmplt = AbuseCompletion {
+        let cmplt = AzbuseCompletion {
             id: req_id,
             result: res.errorno,
         };
-        unsafe { abuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
+        unsafe { azbuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
     }
     async fn run(mut self) {
         while let Some(req) = self.rx.recv().await {
@@ -149,22 +149,22 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     use nix::fcntl::{open, OFlag};
     use nix::sys::stat::Mode;
 
-    let fd = open("/dev/abctl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/abctl");
+    let fd = open("/dev/azbusectl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/azbusectl");
     let devfd = {
-        let devpath = format!("/dev/abuse{}", config.dev_number);
+        let devpath = format!("/dev/azbuse{}", config.dev_number);
         open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device")
     };
 
-    // This attaches struct ab_device to ctlfd->private_data
-    unsafe { abuse_connect(fd, devfd) }.expect("couldn't acquire abuse device");
-    let mut info = AbuseInfo::default();
-    unsafe { abuse_get_status(fd, &mut info) }.expect("couldn't get info");
+    // This attaches struct azb_device to ctlfd->private_data
+    unsafe { azbuse_connect(fd, devfd) }.expect("couldn't acquire azbuse device");
+    let mut info = AzbuseInfo::default();
+    unsafe { azbuse_get_status(fd, &mut info) }.expect("couldn't get info");
     dbg!(&info);
-    unsafe { abuse_reset(fd) }.expect("couldn't reset device");
+    unsafe { azbuse_reset(fd) }.expect("couldn't reset device");
     // size must be some multiple of blocksize
     info.size = config.dev_size;
     info.blocksize = 4096;
-    unsafe { abuse_set_status(fd, &info) }.expect("couldn't set info");
+    unsafe { azbuse_set_status(fd, &info) }.expect("couldn't set info");
 
     let mut poll = Poll::new().unwrap();
     let mut source = SourceFd(&fd);
@@ -173,12 +173,12 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         .expect("failed to set up poll");
     let mut events = Events::with_capacity(1);
 
-    let iovec = [AbuseXfrIoVec::default(); BIO_MAX_VECS];
+    let iovec = [AzbuseXfrIoVec::default(); BIO_MAX_VECS];
     let io_vec_address: u64 =
-        unsafe { std::mem::transmute::<*const AbuseXfrIoVec, u64>(iovec.as_ptr()) };
-    let mut xfr = AbuseXfr {
+        unsafe { std::mem::transmute::<*const AzbuseXfrIoVec, u64>(iovec.as_ptr()) };
+    let mut xfr = AzbuseXfr {
         io_vec_address,
-        ..AbuseXfr::default()
+        ..AzbuseXfr::default()
     };
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -195,14 +195,14 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
         poll.poll(&mut events, None).expect("failed to poll");
         'poll: for ev in &events {
             loop {
-                if let Err(e) = unsafe { abuse_get_req(fd, &mut xfr) } {
+                if let Err(e) = unsafe { azbuse_get_req(fd, &mut xfr) } {
                     break 'poll;
                 }
 
                 let n = xfr.io_vec_count as usize;
                 let xfr_io_vec = {
                     let out = unsafe {
-                        std::mem::transmute::<u64, *const AbuseXfrIoVec>(xfr.io_vec_address)
+                        std::mem::transmute::<u64, *const AzbuseXfrIoVec>(xfr.io_vec_address)
                     };
                     let out = unsafe { std::slice::from_raw_parts(out, n) };
                     out

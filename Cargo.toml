@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "abuse",
-    "abusectl",
-    "tests/abuse-ramdisk",
+    "azabuse",
+    "azabusectl",
+    "tests/ramdisk",
 ]
 
 [workspace.dependencies]

@@ -1,6 +1,6 @@
 MODULE_VERSION ?= 1.0.0
-DKMS_DIR := /usr/src/abuse-$(MODULE_VERSION)
-DKMS_KEY := -m abuse -v $(MODULE_VERSION)
+DKMS_DIR := /usr/src/azbuse-$(MODULE_VERSION)
+DKMS_KEY := -m azbuse -v $(MODULE_VERSION)
 
 install:
 	cp -r src $(DKMS_DIR)

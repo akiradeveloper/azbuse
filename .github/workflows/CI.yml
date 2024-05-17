@@ -26,53 +26,50 @@ jobs:
           version: 1.0
 
       - name: Build module
-        working-directory: abuse-kmod
+        working-directory: azbuse-kmod
         run: sudo make install
       
       - name: Load module
         run: |
-          sudo modprobe abuse
+          sudo modprobe azbuse
           ls /dev
 
-      - name: Install abusectl
-        run: sudo cargo install --path abusectl --root /usr/local
+      - name: Install azbusectl
+        run: sudo cargo install --path azbusectl --root /usr/local
 
-      - name: Add /dev/abuse1
+      - name: Add /dev/azbuse1
         run: |
-          sudo abusectl add 1 
+          sudo azbusectl add 1 
           lsblk
-          sudo abusectl remove 1
+          sudo azbusectl remove 1
           lsblk
-          sudo abusectl add 1
+          sudo azbusectl add 1
           lsblk
 
-      - name: Connect /dev/abuse1 and ramdisk
+      - name: Connect /dev/azbuse1 and ramdisk
         run: |
-          sudo cargo build -p abuse-ramdisk --release
-          sudo target/release/abuse-ramdisk 1 &> abuse.log &
+          sudo cargo build -p ramdisk --release
+          sudo target/release/ramdisk 1 &> azbuse.log &
           sleep 1
           lsblk
 
       - name: Logical test (badblocks)
-        run: sudo badblocks -wsv /dev/abuse1
+        run: sudo badblocks -wsv /dev/azbuse1
 
       - name: Performance test
-        run: sudo ruby tests/perf.rb /dev/abuse1
+        run: sudo ruby tests/perf.rb /dev/azbuse1
 
       - name: Error log
         run: |
-          sudo cat /var/lib/dkms/abuse/1.0.0/build/make.log
+          sudo cat /var/lib/dkms/azbuse/1.0.0/build/make.log
         if: ${{ failure() }}
 
       - name: App Log
         run: |
-          sudo cat abuse.log
+          sudo cat azbuse.log
         if: ${{ always() }}
       
       - name: kernel Log
         run: |
           sudo dmesg
         if: ${{ always() }}
-
-
-        

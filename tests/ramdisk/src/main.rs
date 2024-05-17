@@ -1,4 +1,4 @@
-use abuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
+use azbuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
 use async_trait::async_trait;
 use clap::Parser;
 use core::ffi::c_void;
@@ -12,14 +12,14 @@ async fn main() {
     let opts = Opts::parse();
     let dev_number = opts.dev_number;
     let sz = 1500 << 20; // 1500MB
-    let config = abuse::Config {
+    let config = azbuse::Config {
         dev_number,
         dev_size: sz as u64,
     };
     let engine = Engine {
         mem: MemBuffer::new(sz),
     };
-    abuse::run_on(config, engine).await;
+    azbuse::run_on(config, engine).await;
 }
 
 struct Engine {
