@@ -1,6 +1,6 @@
-.abuse*
-abuse.ko
-abuse.mod*
+.azbuse*
+azbuse.ko
+azbuse.mod*
 build.log
 check-compile.sh
 Module.symvers
@@ -8,4 +8,4 @@ modules.order
 .tmp_versions
 .Module.symvers.cmd
 .modules.order.cmd
-abuse.o
+azbuse.o
