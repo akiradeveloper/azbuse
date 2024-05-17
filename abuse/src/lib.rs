@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use bitflags::bitflags;
 use core::ffi::c_void;
+use std::num::NonZeroUsize;
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
 use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 const PAGE_SHIFT: usize = 12;
@@ -227,14 +228,13 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     out
                 };
 
-                let null_p = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
-
                 let mut tot_n_pages = 0;
                 for i in 0..n {
                     tot_n_pages += xfr_io_vec[i].n_pages;
                 }
                 // mmap all pages in the bvecs at once.
-                let p = unsafe { mmap(null_p, (tot_n_pages << PAGE_SHIFT) as usize, prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
+                let vm_size = NonZeroUsize::new((tot_n_pages << PAGE_SHIFT) as usize).unwrap();
+                let p = unsafe { mmap(None, vm_size, prot_flags, map_flags, fd.as_fd(), 0) }.expect("failed to mmap");
 
                 let mut cur = unsafe { std::mem::transmute::<*const c_void, usize>(p) };
                 let mut io_vecs = vec![];
