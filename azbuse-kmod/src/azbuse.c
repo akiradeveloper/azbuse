@@ -387,7 +387,7 @@ static struct azbuse_device *azbuse_add(int i)
 	disk->first_minor = i;
 	disk->minors = 1;
 	disk->fops = &azb_fops;
-	disk->private_data = ab;
+	disk->private_data = azb;
 	sprintf(disk->disk_name, "azbuse%d", i);
 
 	err = add_disk(disk);
