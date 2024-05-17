@@ -24,7 +24,7 @@ fn main() {
             azbuse_add_device(fd, idx as i32).unwrap();
         },
         Opts::Remove { idx } => unsafe {
-            abbuse_remove_device(fd, idx as i32).unwrap();
+            azbuse_remove_device(fd, idx as i32).unwrap();
         },
     }
 }
