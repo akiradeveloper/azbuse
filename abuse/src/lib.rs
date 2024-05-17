@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use bitflags::bitflags;
 use core::ffi::c_void;
+use std::num::NonZeroUsize;
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
 use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
@@ -229,7 +230,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     tot_n_pages += xfr_io_vec[i].n_pages;
                 }
                 // mmap all pages in the bvecs at once.
-                let p = unsafe { mmap(null_p, (tot_n_pages << PAGE_SHIFT) as usize, prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
+                let vm_len = tot_n_pages << PAGE_SHIFT;
+                let p = unsafe { mmap(None, NonZeroUsize::new(vm_len as usize).unwrap(), prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
 
                 let mut cur = unsafe { std::mem::transmute::<*const c_void, usize>(p) };
                 let mut io_vecs = vec![];
