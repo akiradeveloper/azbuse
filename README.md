@@ -1,6 +1,8 @@
-# userland-io
+# AZBUSE
 
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/userland-io/blob/master/LICENSE)
+
+Block device in userspace.
 
 ## Motivation
 
