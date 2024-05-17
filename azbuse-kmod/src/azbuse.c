@@ -376,7 +376,7 @@ static struct azbuse_device *azbuse_add(int i)
 	if (err)
 		goto out_free_idr;
 
-	disk = blk_mq_alloc_disk(&ab->tag_set, azb);
+	disk = blk_mq_alloc_disk(&azb->tag_set, azb);
 	if (!disk)
 		goto out_cleanup_tags;
 	azb->azb_queue = disk->queue;
