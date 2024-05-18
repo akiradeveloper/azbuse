@@ -1,4 +1,4 @@
-use azbuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
+use azbuse::{CmdFlags, IOVec, Request, StorageEngine};
 use async_trait::async_trait;
 use clap::Parser;
 use core::ffi::c_void;
@@ -27,29 +27,22 @@ struct Engine {
 }
 #[async_trait]
 impl StorageEngine for Engine {
-    async fn call(&mut self, req: Request) -> Response {
+    async fn call(&mut self, req: Request) {
         let id = req.request_id;
         let req_op = req.cmd_flags & CmdFlags::OP_MASK;
         match req_op {
             CmdFlags::OP_WRITE => {
                 let m = &mut self.mem;
                 m.write(req.start as usize, &req.io_vecs);
-                Response {
-                    request_id: id,
-                    errorno: 0,
-                }
+                req.endio(0);
             }
             CmdFlags::OP_READ => {
                 let m = &self.mem;
                 m.read(req.start as usize, &req.io_vecs);
-                Response {
-                    request_id: id,
-                    errorno: 0,
-                }
+                req.endio(0);
             }
-            _ => Response {
-                request_id: id,
-                errorno: -libc::EOPNOTSUPP,
+            _ => {
+                req.endio(-libc::EOPNOTSUPP);
             },
         }
     }
