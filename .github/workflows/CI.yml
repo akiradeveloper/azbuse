@@ -11,7 +11,7 @@ on:
 jobs:
   run_tests:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Kernel version
         run: uname -a
