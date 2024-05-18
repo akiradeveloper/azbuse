@@ -197,7 +197,7 @@ static int azbuse_get_req(struct azbuse_device *azb, struct azbuse_xfr_hdr __use
 			azb->azb_xfer[i].eff_len = bvec.bv_len;
 			i++;
 		}
-		xfr.azb_vec_count = i;
+		xfr.xfr_vec_count = i;
 		azb->azb_xfer_count = i;
 	} else {
 		spin_unlock_irq(&azb->azb_lock);
@@ -207,7 +207,7 @@ static int azbuse_get_req(struct azbuse_device *azb, struct azbuse_xfr_hdr __use
 	if (copy_to_user(arg, &xfr, sizeof(xfr)))
 		return -EFAULT;
 	BUG_ON(xfr.transfer_address == 0);
-	if (copy_to_user((__user void *) xfr.transfer_address, azb->azb_xfer, xfr.azb_vec_count * sizeof(azb->azb_xfer[0])))
+	if (copy_to_user((__user void *) xfr.transfer_address, azb->azb_xfer, xfr.xfr_vec_count * sizeof(azb->azb_xfer[0])))
 		return -EFAULT;
 
 	return 0;
