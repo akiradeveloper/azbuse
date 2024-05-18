@@ -13,6 +13,9 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
+      - name: Kernel version
+        run: uname -a
+
       - name: Check Kernel Config (Rust)
         run: cat /boot/config-$(uname -r) | grep _RUST
 
