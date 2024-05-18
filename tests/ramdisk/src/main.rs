@@ -5,15 +5,14 @@ use core::ffi::c_void;
 
 #[derive(Parser)]
 struct Opts {
-    dev_number: u16,
+    minor: u16,
 }
 #[tokio::main]
 async fn main() {
     let opts = Opts::parse();
-    let dev_number = opts.dev_number;
     let sz = 1500 << 20; // 1500MB
     let config = azbuse::Config {
-        minor,
+        minor: opts.minor,
         device_size: sz as u64,
     };
     let engine = Engine {
