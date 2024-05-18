@@ -48,13 +48,6 @@ struct azbuse_info {
 #define CMD_NOWAIT 1<<11
 #define CMD_RAHEAD 1<<12
 
-struct azbuse_vec {
-	__u64 pfn;
-	__u32 n_pages;
-	__u32 eff_offset;
-	__u32 eff_len;
-};
-
 struct azbuse_xfr_hdr {
 	__u64 xfr_req_id;
 	__u32 xfr_req_command;
@@ -62,6 +55,13 @@ struct azbuse_xfr_hdr {
 	__u64 xfr_io_len;
 	__u32 xfr_vec_count;
 	__u64 xfr_transfer_address;
+};
+
+struct azbuse_vec {
+	__u64 pfn;
+	__u32 n_pages;
+	__u32 eff_offset;
+	__u32 eff_len;
 };
 
 struct azbuse_completion {

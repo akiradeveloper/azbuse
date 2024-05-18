@@ -187,9 +187,9 @@ static int azbuse_get_req(struct azbuse_device *azb, struct azbuse_xfr_hdr __use
 
 		// Use the pointer address as the unique id of the request
 		xfr.xfr_req_id = (__u64)req;
+		xfr.xfr_req_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
 		xfr.xfr_io_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
 		xfr.xfr_io_len = blk_rq_bytes(req->rq);
-		xfr.xfr_req_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
 		rq_for_each_bvec(bvec, req->rq, iter) {
 			azb->azb_xfer[i].pfn = (__u64)page_to_phys(bvec.bv_page) >> PAGE_SHIFT;
 			azb->azb_xfer[i].n_pages = ((bvec.bv_offset + bvec.bv_len) + (4096-1)) / 4096;

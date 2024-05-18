@@ -50,6 +50,7 @@ pub struct AzbuseXfr {
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
 struct AzbuseXfrIoVec {
+    pfn: u64,
     n_pages: u32,
     eff_offset: u32,
     eff_len: u32,
