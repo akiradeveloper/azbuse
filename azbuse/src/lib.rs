@@ -6,8 +6,6 @@ use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
 use nix::sys::mman::{mmap, munmap, MapFlags, ProtFlags};
 
-const PAGE_SHIFT: usize = 12;
-
 bitflags! {
     #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     pub struct CmdFlags: u32 {
@@ -45,6 +43,7 @@ pub struct AzbuseXfr {
     io_len: u64,
     io_vec_count: u32,
     io_vec_address: u64,
+    page_shift: u8,
 }
 
 #[repr(C)]
@@ -222,14 +221,14 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     tot_n_pages += xfr_io_vec[i].n_pages;
                 }
                 // mmap all pages in the bvecs at once.
-                let vm_len = tot_n_pages << PAGE_SHIFT;
+                let vm_len = tot_n_pages << xfr.page_shift;
                 let p = unsafe { mmap(None, NonZeroUsize::new(vm_len as usize).unwrap(), prot_flags, map_flags, fd, 0) }.expect("failed to mmap");
 
                 let mut cur = unsafe { std::mem::transmute::<*const c_void, usize>(p) };
                 let mut io_vecs = vec![];
                 for i in 0..n {
                     let io_vec = &xfr_io_vec[i];
-                    let map_len = (io_vec.n_pages << PAGE_SHIFT) as usize;
+                    let map_len = (io_vec.n_pages << xfr.page_shift) as usize;
                     io_vecs.push(IOVec {
                         vm_addr: cur,
                         vm_len: map_len,

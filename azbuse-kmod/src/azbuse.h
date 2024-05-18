@@ -55,6 +55,7 @@ struct azbuse_xfr_hdr {
 	__u64 xfr_io_len;
 	__u32 xfr_vec_count;
 	__u64 xfr_transfer_address;
+	__u8 page_shift;
 };
 
 struct azbuse_vec {
