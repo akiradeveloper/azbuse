@@ -78,13 +78,14 @@ nix::ioctl_write_ptr_bad!(azbuse_put_req, AZBUSE_PUT_REQ, AzbuseCompletion);
 nix::ioctl_write_int_bad!(azbuse_connect, AZBUSE_CONNECT);
 
 pub struct IOVec {
-    page_address: usize,
-    page_offset: usize,
+    vm_addr: usize,
+    vm_len: usize,
+    io_offset: usize,
     io_len: usize,
 }
 impl IOVec {
     pub fn start(&self) -> *mut c_void {
-        unsafe { std::mem::transmute::<usize, &mut c_void>(self.page_address + self.page_offset) }
+        unsafe { std::mem::transmute::<usize, &mut c_void>(self.vm_addr + self.io_offset) }
     }
     pub fn len(&self) -> usize {
         self.io_len
@@ -92,16 +93,15 @@ impl IOVec {
 }
 impl Drop for IOVec {
     fn drop(&mut self) {
-        let p = unsafe { std::mem::transmute::<usize, *mut c_void>(self.page_address) };
-        let map_len = self.page_offset + self.io_len;
-        unsafe { munmap(p, map_len) }.expect("failed to munmap");
+        let p = unsafe { std::mem::transmute::<usize, *mut c_void>(self.vm_addr) };
+        unsafe { munmap(p, self.vm_len) }.expect("failed to munmap");
     }
 }
 
 pub struct Request {
     pub cmd_flags: CmdFlags,
-    pub start: u64,
-    pub len: u64,
+    pub io_start: u64,
+    pub io_len: u64,
     pub io_vecs: Vec<IOVec>,
     pub request_id: u64,
     fd: i32,
@@ -136,8 +136,8 @@ impl <Engine: StorageEngine> RequestHandler<Engine> {
 const BIO_MAX_VECS: usize = 256;
 
 pub struct Config {
-    pub dev_number: u16,
-    pub dev_size: u64,
+    pub minor: u16,
+    pub device_size: u64,
 }
 
 pub async fn run_on(config: Config, engine: impl StorageEngine) {
@@ -146,7 +146,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
     let fd = open("/dev/azbusectl", OFlag::O_RDWR, Mode::empty()).expect("couldn't open /dev/azbusectl");
     let devfd = {
-        let devpath = format!("/dev/azbuse{}", config.dev_number);
+        let devpath = format!("/dev/azbuse{}", config.minor);
         open(devpath.as_str(), OFlag::empty(), Mode::empty()).expect("couldn't open device")
     };
 
@@ -157,7 +157,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
     dbg!(&info);
     unsafe { azbuse_reset(fd) }.expect("couldn't reset device");
     // size must be some multiple of blocksize
-    info.size = config.dev_size;
+    info.size = config.device_size;
     info.blocksize = 4096;
     unsafe { azbuse_set_status(fd, &info) }.expect("couldn't set info");
 
@@ -229,20 +229,22 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 let mut io_vecs = vec![];
                 for i in 0..n {
                     let io_vec = &xfr_io_vec[i];
+                    let map_len = (io_vec.n_pages << PAGE_SHIFT) as usize;
                     io_vecs.push(IOVec {
-                        page_address: cur,
-                        page_offset: io_vec.offset as usize,
+                        vm_addr: cur,
+                        vm_len: map_len,
+                        io_offset: io_vec.offset as usize,
                         io_len: io_vec.len as usize,
                     });
-                    cur += (io_vec.n_pages << PAGE_SHIFT) as usize;
+                    cur += map_len;
                 }
                 
                 let cmd_flags = CmdFlags::from_bits(xfr.cmd_flags).unwrap();
                 let req = Request {
                     cmd_flags,
                     io_vecs,
-                    start: xfr.offset,
-                    len: xfr.len,
+                    io_start: xfr.offset,
+                    io_len: xfr.len,
                     request_id: xfr.id,
                     fd,
                 };
