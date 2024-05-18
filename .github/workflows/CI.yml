@@ -59,17 +59,17 @@ jobs:
       - name: Performance test
         run: sudo ruby tests/perf.rb /dev/azbuse1
 
-      - name: Error log
+      - name: Kernel module build error
         run: |
           sudo cat /var/lib/dkms/azbuse/1.0.0/build/make.log
         if: ${{ failure() }}
 
-      - name: App Log
+      - name: Application Log
         run: |
           sudo cat azbuse.log
         if: ${{ always() }}
       
-      - name: kernel Log
+      - name: dmesg
         run: |
           sudo dmesg
         if: ${{ always() }}
