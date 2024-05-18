@@ -222,7 +222,7 @@ static struct azb_req *azbuse_find_req(struct azbuse_device *azb, __u64 id)
 // Complete a request 
 static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __user *arg)
 {
-	struct azbuse_completion xfr;
+	struct azbuse_completion cmplt;
 	struct azb_req *req = NULL;
 
 	if (!arg)
@@ -230,11 +230,11 @@ static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __
 	if (!azb)
 		return -ENODEV;
 
-	if (copy_from_user(&xfr, arg, sizeof (struct azbuse_completion)))
+	if (copy_from_user(&cmplt, arg, sizeof (struct azbuse_completion)))
 		return -EFAULT;
 
 	req = azbuse_find_req(azb, xfr.cmplt_req_id);
-	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.cmplt_req_err));
+	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.cmplt_err));
 	return 0;
 }
 
