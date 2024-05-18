@@ -67,7 +67,7 @@ struct azbuse_vec {
 
 struct azbuse_completion {
 	__u64 cmplt_req_id;
-	__u32 cmplt_err;
+	__s32 cmplt_err;
 };
 
 #define AZBUSE_MAJOR 60
