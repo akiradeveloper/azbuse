@@ -5,16 +5,15 @@ use core::ffi::c_void;
 
 #[derive(Parser)]
 struct Opts {
-    dev_number: u16,
+    minor: u16,
 }
 #[tokio::main]
 async fn main() {
     let opts = Opts::parse();
-    let dev_number = opts.dev_number;
     let sz = 1500 << 20; // 1500MB
     let config = azbuse::Config {
-        dev_number,
-        dev_size: sz as u64,
+        minor: opts.minor,
+        device_size: sz as u64,
     };
     let engine = Engine {
         mem: MemBuffer::new(sz),
@@ -33,12 +32,12 @@ impl StorageEngine for Engine {
         match req_op {
             CmdFlags::OP_WRITE => {
                 let m = &mut self.mem;
-                m.write(req.start as usize, &req.io_vecs);
+                m.write(req.io_start as usize, &req.io_vecs);
                 req.endio(0);
             }
             CmdFlags::OP_READ => {
                 let m = &self.mem;
-                m.read(req.start as usize, &req.io_vecs);
+                m.read(req.io_start as usize, &req.io_vecs);
                 req.endio(0);
             }
             _ => {
