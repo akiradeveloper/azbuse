@@ -104,16 +104,21 @@ pub struct Request {
     pub len: u64,
     pub io_vecs: Vec<IOVec>,
     pub request_id: u64,
+    fd: i32,
 }
-
-pub struct Response {
-    pub errorno: i32,
-    pub request_id: u64,
+impl Request {
+    pub fn endio(self, error: i32) {
+        let cmplt = AzbuseCompletion {
+            id: self.request_id,
+            result: error,
+        };
+        unsafe { azbuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
+    }
 }
 
 #[async_trait]
 pub trait StorageEngine: Send + Sync + 'static {
-    async fn call(&mut self, req: Request) -> Response;
+    async fn call(&mut self, req: Request);
 }
 
 struct RequestHandler<Engine: StorageEngine> {
@@ -123,13 +128,7 @@ struct RequestHandler<Engine: StorageEngine> {
 }
 impl <Engine: StorageEngine> RequestHandler<Engine> {
     async fn run_once(&mut self, req: Request) {
-        let req_id = req.request_id;
-        let res = self.engine.call(req).await;
-        let cmplt = AzbuseCompletion {
-            id: req_id,
-            result: res.errorno,
-        };
-        unsafe { azbuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
+        self.engine.call(req).await;
     }
     async fn run(mut self) {
         while let Some(req) = self.rx.recv().await {
@@ -223,8 +222,6 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     out
                 };
 
-                let null_p = unsafe { std::mem::transmute::<usize, *mut c_void>(0) };
-
                 let mut tot_n_pages = 0;
                 for i in 0..n {
                     tot_n_pages += xfr_io_vec[i].n_pages;
@@ -252,7 +249,9 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     start: xfr.offset,
                     len: xfr.len,
                     request_id: xfr.id,
+                    fd,
                 };
+
                 tx.send(req).unwrap();
             }
         }
