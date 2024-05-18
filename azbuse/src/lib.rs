@@ -122,17 +122,13 @@ pub trait StorageEngine: Send + Sync + 'static {
 }
 
 struct RequestHandler<Engine: StorageEngine> {
-    fd: i32,
     rx: tokio::sync::mpsc::UnboundedReceiver<Request>,
     engine: Engine,
 }
 impl <Engine: StorageEngine> RequestHandler<Engine> {
-    async fn run_once(&mut self, req: Request) {
-        self.engine.call(req).await;
-    }
     async fn run(mut self) {
         while let Some(req) = self.rx.recv().await {
-            self.run_once(req).await
+            self.engine.call(req).await;
         }
     }
 }
@@ -182,7 +178,6 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let request_handler = RequestHandler {
-        fd,
         rx,
         engine,
     };

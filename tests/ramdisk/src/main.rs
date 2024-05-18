@@ -1,4 +1,4 @@
-use azbuse::{CmdFlags, IOVec, Request, Response, StorageEngine};
+use azbuse::{CmdFlags, IOVec, Request, StorageEngine};
 use async_trait::async_trait;
 use clap::Parser;
 use core::ffi::c_void;
