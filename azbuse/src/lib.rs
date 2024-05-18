@@ -40,9 +40,9 @@ pub struct AzbuseInfo {
 #[derive(Default)]
 pub struct AzbuseXfr {
     id: u64,
-    offset: u64,
-    len: u64,
     cmd_flags: u32,
+    io_offset: u64,
+    io_len: u64,
     io_vec_count: u32,
     io_vec_address: u64,
 }
@@ -50,10 +50,10 @@ pub struct AzbuseXfr {
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
 struct AzbuseXfrIoVec {
-    address: u64,
+    pfn: u64,
     n_pages: u32,
-    offset: u32,
-    len: u32,
+    eff_offset: u32,
+    eff_len: u32,
 }
 
 #[repr(C)]
@@ -80,15 +80,15 @@ nix::ioctl_write_int_bad!(azbuse_connect, AZBUSE_CONNECT);
 pub struct IOVec {
     vm_addr: usize,
     vm_len: usize,
-    io_offset: usize,
-    io_len: usize,
+    eff_offset: usize,
+    eff_len: usize,
 }
 impl IOVec {
     pub fn start(&self) -> *mut c_void {
-        unsafe { std::mem::transmute::<usize, &mut c_void>(self.vm_addr + self.io_offset) }
+        unsafe { std::mem::transmute::<usize, &mut c_void>(self.vm_addr + self.eff_offset) }
     }
     pub fn len(&self) -> usize {
-        self.io_len
+        self.eff_len
     }
 }
 impl Drop for IOVec {
@@ -233,8 +233,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     io_vecs.push(IOVec {
                         vm_addr: cur,
                         vm_len: map_len,
-                        io_offset: io_vec.offset as usize,
-                        io_len: io_vec.len as usize,
+                        eff_offset: io_vec.eff_offset as usize,
+                        eff_len: io_vec.eff_len as usize,
                     });
                     cur += map_len;
                 }
@@ -243,8 +243,8 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                 let req = Request {
                     cmd_flags,
                     io_vecs,
-                    io_start: xfr.offset,
-                    io_len: xfr.len,
+                    io_start: xfr.io_offset,
+                    io_len: xfr.io_len,
                     request_id: xfr.id,
                     fd,
                 };

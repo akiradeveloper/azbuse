@@ -34,13 +34,6 @@ struct azbuse_info {
 #define AZBUSE_CTL_REMOVE 0x4187
 #define AZBUSE_CONNECT 0x4188
 
-struct azbuse_vec {
-	__u64 azb_address;
-	__u32 n_pages;
-	__u32 azb_offset;
-	__u32 azb_len;
-};
-
 #define CMD_OP_UNKNOWN 0
 #define CMD_OP_READ 1
 #define CMD_OP_WRITE 2
@@ -56,17 +49,24 @@ struct azbuse_vec {
 #define CMD_RAHEAD 1<<12
 
 struct azbuse_xfr_hdr {
-	__u64 azb_id;
-	__u64 azb_offset;
-	__u64 azb_len;
-	__u32 azb_command;
-	__u32 azb_vec_count;
-	__u64 azb_transfer_address;
+	__u64 xfr_req_id;
+	__u32 xfr_req_command;
+	__u64 xfr_io_offset;
+	__u64 xfr_io_len;
+	__u32 xfr_vec_count;
+	__u64 xfr_transfer_address;
+};
+
+struct azbuse_vec {
+	__u64 pfn;
+	__u32 n_pages;
+	__u32 eff_offset;
+	__u32 eff_len;
 };
 
 struct azbuse_completion {
-	__u64 azb_id;
-	__u32 azb_errno;
+	__u64 cmplt_req_id;
+	__u32 cmplt_err;
 };
 
 #define AZBUSE_MAJOR 60

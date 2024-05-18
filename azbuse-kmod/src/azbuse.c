@@ -186,19 +186,18 @@ static int azbuse_get_req(struct azbuse_device *azb, struct azbuse_xfr_hdr __use
 		spin_unlock_irq(&azb->azb_lock);
 
 		// Use the pointer address as the unique id of the request
-		xfr.azb_id = (__u64)req;
-		xfr.azb_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
-		xfr.azb_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
-		xfr.azb_len = blk_rq_bytes(req->rq);
+		xfr.xfr_req_id = (__u64)req;
+		xfr.xfr_req_command = xfr_command_from_cmd_flags(req->rq->cmd_flags);
+		xfr.xfr_io_offset = blk_rq_pos(req->rq) << SECTOR_SHIFT;
+		xfr.xfr_io_len = blk_rq_bytes(req->rq);
 		rq_for_each_bvec(bvec, req->rq, iter) {
-			// physical address of the page
-			azb->azb_xfer[i].azb_address = (__u64)page_to_phys(bvec.bv_page);
+			azb->azb_xfer[i].pfn = (__u64)page_to_phys(bvec.bv_page) >> PAGE_SHIFT;
 			azb->azb_xfer[i].n_pages = ((bvec.bv_offset + bvec.bv_len) + (4096-1)) / 4096;
-			azb->azb_xfer[i].azb_offset = bvec.bv_offset;
-			azb->azb_xfer[i].azb_len = bvec.bv_len;
+			azb->azb_xfer[i].eff_offset = bvec.bv_offset;
+			azb->azb_xfer[i].eff_len = bvec.bv_len;
 			i++;
 		}
-		xfr.azb_vec_count = i;
+		xfr.xfr_vec_count = i;
 		azb->azb_xfer_count = i;
 	} else {
 		spin_unlock_irq(&azb->azb_lock);
@@ -207,8 +206,8 @@ static int azbuse_get_req(struct azbuse_device *azb, struct azbuse_xfr_hdr __use
 
 	if (copy_to_user(arg, &xfr, sizeof(xfr)))
 		return -EFAULT;
-	BUG_ON(xfr.azb_transfer_address == 0);
-	if (copy_to_user((__user void *) xfr.azb_transfer_address, azb->azb_xfer, xfr.azb_vec_count * sizeof(azb->azb_xfer[0])))
+	BUG_ON(xfr.xfr_transfer_address == 0);
+	if (copy_to_user((__user void *) xfr.xfr_transfer_address, azb->azb_xfer, xfr.xfr_vec_count * sizeof(azb->azb_xfer[0])))
 		return -EFAULT;
 
 	return 0;
@@ -223,7 +222,7 @@ static struct azb_req *azbuse_find_req(struct azbuse_device *azb, __u64 id)
 // Complete a request 
 static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __user *arg)
 {
-	struct azbuse_completion xfr;
+	struct azbuse_completion cmplt;
 	struct azb_req *req = NULL;
 
 	if (!arg)
@@ -231,11 +230,11 @@ static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __
 	if (!azb)
 		return -ENODEV;
 
-	if (copy_from_user(&xfr, arg, sizeof (struct azbuse_completion)))
+	if (copy_from_user(&cmplt, arg, sizeof (struct azbuse_completion)))
 		return -EFAULT;
 
-	req = azbuse_find_req(azb, xfr.azb_id);
-	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.azb_errno));
+	req = azbuse_find_req(azb, cmplt.cmplt_req_id);
+	blk_mq_end_request(req->rq, errno_to_blk_status(cmplt.cmplt_err));
 	return 0;
 }
 
@@ -303,7 +302,7 @@ static int azbusectl_mmap(struct file *filp, struct vm_area_struct *vma)
 	
 	cur = vma->vm_start;
 	for (i=0; i<n; i++) {
-		unsigned long pfn = azb->azb_xfer[i].azb_address >> PAGE_SHIFT;
+		unsigned long pfn = azb->azb_xfer[i].pfn;
 		unsigned long len = azb->azb_xfer[i].n_pages << PAGE_SHIFT;
 		err = remap_pfn_range(vma, cur, pfn, len, vma->vm_page_prot);
 		if (err) {
@@ -315,7 +314,7 @@ static int azbusectl_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	// Rollback on failure
 	for (i=0; i<err_i; i++) {
-		unsigned long pfn = azb->azb_xfer[i].azb_address >> PAGE_SHIFT;
+		unsigned long pfn = azb->azb_xfer[i].pfn;
 		unsigned long len = azb->azb_xfer[i].n_pages;
 		unmap_mapping_pages(vma->vm_file->f_mapping, pfn, len, 0);
 	}
