@@ -233,8 +233,8 @@ static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __
 	if (copy_from_user(&cmplt, arg, sizeof (struct azbuse_completion)))
 		return -EFAULT;
 
-	req = azbuse_find_req(azb, xfr.cmplt_req_id);
-	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.cmplt_err));
+	req = azbuse_find_req(azb, cmplt.cmplt_req_id);
+	blk_mq_end_request(req->rq, errno_to_blk_status(cmplt.cmplt_err));
 	return 0;
 }
 
