@@ -206,8 +206,8 @@ static int azbuse_get_req(struct azbuse_device *azb, struct azbuse_xfr_hdr __use
 
 	if (copy_to_user(arg, &xfr, sizeof(xfr)))
 		return -EFAULT;
-	BUG_ON(xfr.transfer_address == 0);
-	if (copy_to_user((__user void *) xfr.transfer_address, azb->azb_xfer, xfr.xfr_vec_count * sizeof(azb->azb_xfer[0])))
+	BUG_ON(xfr.xfr_transfer_address == 0);
+	if (copy_to_user((__user void *) xfr.xfr_transfer_address, azb->azb_xfer, xfr.xfr_vec_count * sizeof(azb->azb_xfer[0])))
 		return -EFAULT;
 
 	return 0;
@@ -233,8 +233,8 @@ static int azbuse_put_req(struct azbuse_device *azb, struct azbuse_completion __
 	if (copy_from_user(&xfr, arg, sizeof (struct azbuse_completion)))
 		return -EFAULT;
 
-	req = azbuse_find_req(azb, xfr.complt_req_id);
-	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.complt_req_err));
+	req = azbuse_find_req(azb, xfr.cmplt_req_id);
+	blk_mq_end_request(req->rq, errno_to_blk_status(xfr.cmplt_req_err));
 	return 0;
 }
 
