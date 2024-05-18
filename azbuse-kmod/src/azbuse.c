@@ -295,16 +295,31 @@ static unsigned int azbusectl_poll(struct file *filp, poll_table *wait)
 static int azbusectl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct azbuse_device *azb = filp->private_data;
-	int i;
+
 	int n = azb->azb_xfer_count;
-	int err = 0;
-	unsigned long cur = vma->vm_start;
+	int i;
+	int err_i, err = 0;
+	unsigned long cur;
+	
+	cur = vma->vm_start;
 	for (i=0; i<n; i++) {
 		unsigned long pfn = azb->azb_xfer[i].azb_address >> PAGE_SHIFT;
 		unsigned long len = azb->azb_xfer[i].n_pages << PAGE_SHIFT;
-		err |= remap_pfn_range(vma, cur, pfn, len, vma->vm_page_prot);
+		err = remap_pfn_range(vma, cur, pfn, len, vma->vm_page_prot);
+		if (err) {
+			err_i = i;
+			break;
+		}
 		cur += len;
 	}
+
+	// Rollback on failure
+	for (i=0; i<err_i; i++) {
+		unsigned long pfn = azb->azb_xfer[i].azb_address >> PAGE_SHIFT;
+		unsigned long len = azb->azb_xfer[i].n_pages;
+		unmap_mapping_pages(vma->vm_file->f_mapping, pfn, len, 0);
+	}
+
 	return err;
 }
 
