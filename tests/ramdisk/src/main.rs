@@ -33,16 +33,14 @@ impl StorageEngine for Engine {
             CmdFlags::OP_WRITE => {
                 let m = &mut self.mem;
                 m.write(req.io_start as usize, &req.io_vecs);
-                req.endio(0);
+                req.endio(azbuse::IOResult::Ok);
             }
             CmdFlags::OP_READ => {
                 let m = &self.mem;
                 m.read(req.io_start as usize, &req.io_vecs);
-                req.endio(nix::Error::);
+                req.endio(azbuse::IOResult::Ok);
             }
-            _ => {
-                req.endio(-libc::EOPNOTSUPP);
-            },
+            _ => {}
         }
     }
 }
