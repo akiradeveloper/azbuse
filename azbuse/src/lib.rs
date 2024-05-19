@@ -104,14 +104,23 @@ pub struct Request {
     pub io_vecs: Vec<IOVec>,
     pub request_id: u64,
     fd: i32,
+    completed: bool,
 }
 impl Request {
-    pub fn endio(self, error: i32) {
+    pub fn endio(mut self, error: nix::Error) {
         let cmplt = AzbuseCompletion {
             id: self.request_id,
-            result: error,
+            result: error as i32,
         };
         unsafe { azbuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
+        self.completed = true;
+    }
+}
+impl Drop for Request {
+    fn drop(&mut self) {
+        if !self.completed {
+            self.endio(nix::Error::EIO);
+        }
     }
 }
 
@@ -246,6 +255,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     io_len: xfr.io_len,
                     request_id: xfr.id,
                     fd,
+                    completed: false,
                 };
 
                 tx.send(req).unwrap();
