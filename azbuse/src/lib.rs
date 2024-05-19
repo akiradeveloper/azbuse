@@ -59,7 +59,7 @@ struct AzbuseXfrIoVec {
 #[derive(Default)]
 pub struct AzbuseCompletion {
     id: u64,
-    result: i32,
+    result: u32,
 }
 
 const AZBUSE_GET_STATUS: u16 = 0x4120;
@@ -97,6 +97,11 @@ impl Drop for IOVec {
     }
 }
 
+pub enum IOResult {
+    Ok,
+    Error(nix::errno::Errno),
+}
+
 pub struct Request {
     pub cmd_flags: CmdFlags,
     pub io_start: u64,
@@ -104,14 +109,27 @@ pub struct Request {
     pub io_vecs: Vec<IOVec>,
     pub request_id: u64,
     fd: i32,
+    completed: bool,
 }
 impl Request {
-    pub fn endio(self, error: i32) {
+    pub fn endio(mut self, result: IOResult) {
+        let errno = match result {
+            IOResult::Ok => 0,
+            IOResult::Error(e) => e as i32,
+        };
         let cmplt = AzbuseCompletion {
             id: self.request_id,
-            result: error,
+            result: errno as u32,
         };
         unsafe { azbuse_put_req(self.fd, &cmplt) }.expect("failed to put req");
+        self.completed = true;
+    }
+}
+impl Drop for Request {
+    fn drop(&mut self) {
+        if !self.completed {
+            self.endio(IOResult::Error(nix::errno::Errno::EIO));
+        }
     }
 }
 
@@ -246,6 +264,7 @@ pub async fn run_on(config: Config, engine: impl StorageEngine) {
                     io_len: xfr.io_len,
                     request_id: xfr.id,
                     fd,
+                    completed: false,
                 };
 
                 tx.send(req).unwrap();

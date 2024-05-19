@@ -30,7 +30,9 @@ jobs:
 
       - name: Build module
         working-directory: azbuse-kmod
-        run: sudo make install
+        run: |
+          sudo mkdir -p /var/lib/dkms
+          sudo make install
       
       - name: Load module
         run: |
